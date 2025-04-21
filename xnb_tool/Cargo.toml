@@ -6,4 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow    = "1.0.98"
 byteorder = "1.5.0"
-clap      = { version = "4.5.37", features = ["derive"] }
+lzxd      = "0.2.6"
+
+clap = { version = "4.5.37", features = ["derive"] }
+walkdir = "2.5.0"

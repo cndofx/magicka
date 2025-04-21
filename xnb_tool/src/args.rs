@@ -14,7 +14,10 @@ pub enum Subcommands {
         input: String,
 
         /// Directory to extract to
-        #[arg(short, long)]
         output: String,
+
+        /// Overwrite existing files
+        #[arg(short, long)]
+        overwrite: bool,
     },
 }
