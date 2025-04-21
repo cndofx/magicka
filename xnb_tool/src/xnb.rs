@@ -8,6 +8,8 @@ use anyhow::Context;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use lzxd::Lzxd;
 
+use crate::{content::Content, ext::MyReadBytesExt};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
     Windows,
@@ -98,22 +100,44 @@ impl Xnb {
         Ok(xnb)
     }
 
+    // pub fn parse_content(&self) -> anyhow::Result<XnbContent> {
+    //     let reader_count =
+
+    //     todo!()
+    // }
+
     pub fn extract(&self, file_path: impl AsRef<Path>, overwrite: bool) -> anyhow::Result<()> {
         let file_path = file_path.as_ref();
+        dbg!("extracting to {}", file_path.display());
         let exists = file_path.try_exists()?;
         if exists && !overwrite {
             anyhow::bail!("{} already exists", file_path.display());
         }
         let mut file = File::create(file_path)?;
 
-        if self.header.compressed {
-            let decompressed = self.decompress().context("decompression failed")?;
-            file.write_all(&decompressed)?;
+        // let decompressed = if self.header.compressed {
+        //     self.decompress().context("decompression failed")?
+        // } else {
+        //     self.
+        // }
+
+        let content = if self.header.compressed {
+            let decompressed = self
+                .decompress()
+                .context("failed to decompress xnb content")?;
+            XnbContent::parse(decompressed.as_slice())?
         } else {
-            // this is probably just writing self.data to a file,
-            // but i don't have an uncompressed xnb to test with
-            todo!();
-        }
+            XnbContent::parse(self.data.as_slice())?
+        };
+
+        // if self.header.compressed {
+        //     let decompressed = self.decompress().context("decompression failed")?;
+        //     file.write_all(&decompressed)?;
+        // } else {
+        //     // this is probably just writing self.data to a file,
+        //     // but i don't have an uncompressed xnb to test with
+        //     todo!();
+        // }
 
         Ok(())
     }
@@ -148,5 +172,40 @@ impl Xnb {
         }
 
         Ok(decompressed)
+    }
+}
+
+#[derive(Debug)]
+pub struct XnbContent {
+    readers: Vec<TypeReader>,
+    primary: Content,
+    // shared: Vec<Content>,
+}
+
+#[derive(Debug)]
+pub struct TypeReader {
+    pub name: String,
+    pub version: i32,
+}
+
+impl XnbContent {
+    pub fn parse(mut reader: impl Read) -> anyhow::Result<Self> {
+        let reader_count = reader.read_7bit_encoded_i32()?;
+        let mut readers = Vec::with_capacity(reader_count as usize);
+        for _ in 0..reader_count {
+            let name = reader.read_null_terminated_string()?;
+            let version = reader.read_i32::<LittleEndian>()?;
+            let reader = TypeReader { name, version };
+            readers.push(reader);
+        }
+        dbg!(&readers);
+
+        // let shared_count = reader.read_7bit_encoded_i32()?;
+        // dbg!(&shared_count);
+
+        let primary = Content::read(&mut reader, &readers)?;
+        dbg!(&primary);
+
+        todo!()
     }
 }

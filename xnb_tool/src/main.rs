@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::BufReader,
-    path::{Path, PathBuf},
-};
+use std::{fs::File, io::BufReader, path::Path};
 
 use anyhow::Context;
 use args::{Args, Subcommands};
@@ -81,13 +77,12 @@ fn extract_directory(
 
         eprintln!("extracting entry: {}", relative_path.display());
 
-        extract_file(entry.path(), output_path.join(relative_path), overwrite)?;
-        // if let Err(e) = extract_file(entry.path(), output_path, overwrite) {
-        //     eprintln!("failed to extract entry: {e}");
-        //     for cause in e.chain() {
-        //         eprintln!("because: {cause}");
-        //     }
-        // }
+        if let Err(e) = extract_file(entry.path(), output_path.join(relative_path), overwrite) {
+            eprintln!("failed to extract entry: {e}");
+            for (i, cause) in e.chain().enumerate() {
+                eprintln!("  {i}: {cause}");
+            }
+        }
     }
 
     Ok(())

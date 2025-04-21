@@ -7,6 +7,9 @@ edition = "2024"
 anyhow    = "1.0.98"
 byteorder = "1.5.0"
 lzxd      = "0.2.6"
+walkdir   = "2.5.0"
 
-clap = { version = "4.5.37", features = ["derive"] }
-walkdir = "2.5.0"
+bitflags = { version = "2.9.0", features = ["serde"] }
+clap     = { version = "4.5.37", features = ["derive"] }
+serde    = { version = "1.0.219", features = ["derive"] }
+strum    = { version = "0.27.1", features = ["derive"] }
