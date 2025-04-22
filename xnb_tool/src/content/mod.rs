@@ -1,6 +1,7 @@
 use std::io::Read;
 
 use item::Item;
+use serde::{Deserialize, Serialize};
 
 use crate::ext::MyReadBytesExt;
 use crate::xnb::TypeReader;
@@ -21,7 +22,7 @@ pub mod weapon_class;
 
 const ITEM_READER_NAME: &str = "LMagicka.ContentReaders.ItemReader";
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Content {
     Null,
     Item(Item),
@@ -34,7 +35,6 @@ impl Content {
             return Ok(Content::Null);
         }
         let type_reader = &type_readers[type_id - 1];
-        dbg!(type_reader);
 
         if type_reader.name.starts_with(ITEM_READER_NAME) {
             let item = Item::read(reader)?;

@@ -10,7 +10,6 @@ mod args;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    dbg!(&args);
 
     match args.subcommand {
         Subcommands::Extract {

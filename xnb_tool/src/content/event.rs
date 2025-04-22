@@ -234,7 +234,6 @@ impl EventConditions {
         let mut events = Vec::with_capacity(num_events as usize);
         for _ in 0..num_events {
             let event = Event::read(reader)?;
-            dbg!(&event);
             events.push(event);
         }
 

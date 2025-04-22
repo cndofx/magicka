@@ -7,6 +7,7 @@ use std::{
 use anyhow::Context;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use lzxd::Lzxd;
+use serde::{Deserialize, Serialize};
 
 use crate::{content::Content, ext::MyReadBytesExt};
 
@@ -90,7 +91,6 @@ impl Xnb {
             compressed_size,
             uncompressed_size,
         };
-        dbg!(&header);
 
         let mut data = Vec::with_capacity(header.compressed_size as usize);
         reader.read_to_end(&mut data)?;
@@ -100,27 +100,7 @@ impl Xnb {
         Ok(xnb)
     }
 
-    // pub fn parse_content(&self) -> anyhow::Result<XnbContent> {
-    //     let reader_count =
-
-    //     todo!()
-    // }
-
     pub fn extract(&self, file_path: impl AsRef<Path>, overwrite: bool) -> anyhow::Result<()> {
-        let file_path = file_path.as_ref();
-        dbg!("extracting to {}", file_path.display());
-        let exists = file_path.try_exists()?;
-        if exists && !overwrite {
-            anyhow::bail!("{} already exists", file_path.display());
-        }
-        let mut file = File::create(file_path)?;
-
-        // let decompressed = if self.header.compressed {
-        //     self.decompress().context("decompression failed")?
-        // } else {
-        //     self.
-        // }
-
         let content = if self.header.compressed {
             let decompressed = self
                 .decompress()
@@ -132,14 +112,22 @@ impl Xnb {
             XnbContent::parse(&mut reader)?
         };
 
-        // if self.header.compressed {
-        //     let decompressed = self.decompress().context("decompression failed")?;
-        //     file.write_all(&decompressed)?;
-        // } else {
-        //     // this is probably just writing self.data to a file,
-        //     // but i don't have an uncompressed xnb to test with
-        //     todo!();
-        // }
+        let extension = match content.content {
+            Content::Null => todo!(),
+            Content::Item(..) => "item.json",
+        };
+
+        let file_path = file_path.as_ref().with_extension(extension);
+        let exists = file_path.try_exists()?;
+        if exists && !overwrite {
+            anyhow::bail!("{} already exists", file_path.display());
+        }
+        let mut file = File::create(&file_path)?;
+
+        let json = serde_json::to_string_pretty(&content).context("failed to serialize content")?;
+        file.write_all(json.as_bytes())?;
+
+        eprintln!("saved to {}", file_path.display());
 
         Ok(())
     }
@@ -161,7 +149,6 @@ impl Xnb {
                 block_size = data.read_u16::<BigEndian>()?;
                 frame_size = 0x8000;
             }
-            dbg!(frame_size, block_size);
 
             if block_size == 0 || frame_size == 0 {
                 break;
@@ -177,14 +164,13 @@ impl Xnb {
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct XnbContent {
     readers: Vec<TypeReader>,
-    primary: Content,
-    // shared: Vec<Content>,
+    content: Content,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TypeReader {
     pub name: String,
     pub version: i32,
@@ -200,14 +186,17 @@ impl XnbContent {
             let reader = TypeReader { name, version };
             readers.push(reader);
         }
-        dbg!(&readers);
-
-        // let shared_count = reader.read_7bit_encoded_i32()?;
-        // dbg!(&shared_count);
 
         let primary = Content::read(reader, &readers)?;
-        dbg!(&primary);
 
-        todo!()
+        let mut rem = Vec::new();
+        reader.read_to_end(&mut rem)?;
+        debug_assert!(rem.len() == 0);
+
+        let content = XnbContent {
+            readers,
+            content: primary,
+        };
+        Ok(content)
     }
 }
