@@ -5,7 +5,14 @@ use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use super::{attack_property::AttackProperty, element::Element, light::Light, sound::Bank};
+use super::{
+    ai::{Order, ReactionTriggers},
+    attack_property::AttackProperties,
+    element::Elements,
+    light::Light,
+    sound::Bank,
+    vector3::Vector3,
+};
 use crate::ext::MyReadBytesExt;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,6 +22,10 @@ pub enum Event {
     Sound(SoundEvent),
     Effect(EffectEvent),
     Remove(RemoveEvent),
+    Spawn(SpawnEvent),
+    SpawnGibs(SpawnGibsEvent),
+    SpawnItem(SpawnItemEvent),
+    SpawnMagick(SpawnMagickEvent),
     SpawnMissile(SpawnMissileEvent),
     Light(LightEvent),
     CastMagick(CastMagickEvent),
@@ -55,19 +66,23 @@ impl Event {
                 todo!("blast event (invalid?)");
             }
             8 => {
-                todo!("spawn event");
+                let event = SpawnEvent::read(reader)?;
+                Ok(Event::Spawn(event))
             }
             9 => {
                 todo!("overkill event");
             }
             10 => {
-                todo!("spawn gibs event");
+                let event = SpawnGibsEvent::read(reader)?;
+                Ok(Event::SpawnGibs(event))
             }
             11 => {
-                todo!("spawn item event");
+                let event = SpawnItemEvent::read(reader)?;
+                Ok(Event::SpawnItem(event))
             }
             12 => {
-                todo!("spawn magick event");
+                let event = SpawnMagickEvent::read(reader)?;
+                Ok(Event::SpawnMagick(event))
             }
             13 => {
                 let event = SpawnMissileEvent::read(reader)?;
@@ -95,8 +110,8 @@ impl Event {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DamageEvent {
-    attack_properties: AttackProperty,
-    elements: Element,
+    attack_properties: AttackProperties,
+    elements: Elements,
     amount: f32,
     magnitude: f32,
     velocity_based: bool,
@@ -104,27 +119,25 @@ pub struct DamageEvent {
 
 impl DamageEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let attack_properties = AttackProperty::read(reader)?;
-        let elements = Element::read(reader)?;
+        let attack_properties = AttackProperties::read(reader)?;
+        let elements = Elements::read(reader)?;
         let amount = reader.read_f32::<LittleEndian>()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
         let velocity_based = reader.read_bool()?;
-
-        let event = DamageEvent {
+        Ok(DamageEvent {
             attack_properties,
             elements,
             amount,
             magnitude,
             velocity_based,
-        };
-        Ok(event)
+        })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SplashEvent {
-    attack_properties: AttackProperty,
-    elements: Element,
+    attack_properties: AttackProperties,
+    elements: Elements,
     amount: i32,
     magnitude: f32,
     radius: f32,
@@ -132,20 +145,18 @@ pub struct SplashEvent {
 
 impl SplashEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let attack_properties = AttackProperty::read(reader)?;
-        let element = Element::read(reader)?;
+        let attack_properties = AttackProperties::read(reader)?;
+        let element = Elements::read(reader)?;
         let amount = reader.read_i32::<LittleEndian>()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
         let radius = reader.read_f32::<LittleEndian>()?;
-
-        let event = SplashEvent {
+        Ok(SplashEvent {
             attack_properties,
             elements: element,
             amount,
             magnitude,
             radius,
-        };
-        Ok(event)
+        })
     }
 }
 
@@ -163,14 +174,12 @@ impl SoundEvent {
         let cue = reader.read_7bit_length_string()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
         let stop_on_remove = reader.read_bool()?;
-
-        let event = SoundEvent {
+        Ok(SoundEvent {
             banks: bank,
             cue,
             magnitude,
             stop_on_remove,
-        };
-        Ok(event)
+        })
     }
 }
 
@@ -186,13 +195,11 @@ impl EffectEvent {
         let follow = reader.read_bool()?;
         let world_aligned = reader.read_bool()?;
         let effect = reader.read_7bit_length_string()?;
-
-        let event = EffectEvent {
+        Ok(EffectEvent {
             follow,
             world_aligned,
             effect,
-        };
-        Ok(event)
+        })
     }
 }
 
@@ -210,27 +217,102 @@ impl RemoveEvent {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct SpawnEvent {
+    pub kind: String,
+    pub idle_animation: String,
+    pub spawn_animation: String,
+    pub health: f32,
+    pub order: Order,
+    pub react_to: ReactionTriggers,
+    pub reaction: Order,
+    pub rotation: f32,
+    pub offset: Vector3,
+}
+
+impl SpawnEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let kind = reader.read_7bit_length_string()?;
+        let idle_animation = reader.read_7bit_length_string()?;
+        let spawn_animation = reader.read_7bit_length_string()?;
+        let health = reader.read_f32::<LittleEndian>()?;
+        let order = Order::read(reader)?;
+        let react_to = ReactionTriggers::read(reader)?;
+        let reaction = Order::read(reader)?;
+        let rotation = reader.read_f32::<LittleEndian>()?;
+        let offset = Vector3::read(reader)?;
+        Ok(SpawnEvent {
+            kind,
+            idle_animation,
+            spawn_animation,
+            health,
+            order,
+            react_to,
+            reaction,
+            rotation,
+            offset,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SpawnGibsEvent {
+    start_index: i32,
+    end_index: i32,
+}
+
+impl SpawnGibsEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let start_index = reader.read_i32::<LittleEndian>()?;
+        let end_index = reader.read_i32::<LittleEndian>()?;
+        Ok(SpawnGibsEvent {
+            start_index,
+            end_index,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SpawnItemEvent {
+    item: String,
+}
+
+impl SpawnItemEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let item = reader.read_7bit_length_string()?;
+        Ok(SpawnItemEvent { item })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SpawnMagickEvent {
+    magick: String,
+}
+
+impl SpawnMagickEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let magick = reader.read_7bit_length_string()?;
+        Ok(SpawnMagickEvent { magick })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SpawnMissileEvent {
     kind: String,
-    velocity: [f32; 3],
+    velocity: Vector3,
     facing: bool,
 }
 
 impl SpawnMissileEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let kind = reader.read_7bit_length_string()?;
-        let velocity_x = reader.read_f32::<LittleEndian>()?;
-        let velocity_y = reader.read_f32::<LittleEndian>()?;
-        let velocity_z = reader.read_f32::<LittleEndian>()?;
-        let velocity = [velocity_x, velocity_y, velocity_z];
+        let velocity = Vector3::read(reader)?;
         let facing = reader.read_bool()?;
 
-        let event = SpawnMissileEvent {
+        Ok(SpawnMissileEvent {
             kind,
             velocity,
             facing,
-        };
-        Ok(event)
+        })
     }
 }
 
@@ -242,15 +324,14 @@ pub struct LightEvent {
 impl LightEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let light = Light::read(reader)?;
-        let event = LightEvent { light };
-        Ok(event)
+        Ok(LightEvent { light })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CastMagickEvent {
     kind: String,
-    elements: Vec<Element>,
+    elements: Vec<Elements>,
 }
 
 impl CastMagickEvent {
@@ -259,19 +340,17 @@ impl CastMagickEvent {
         let num_elements = reader.read_i32::<LittleEndian>()? as usize;
         let mut elements = Vec::with_capacity(num_elements);
         for _ in 0..num_elements {
-            let element = Element::read(reader)?;
+            let element = Elements::read(reader)?;
             elements.push(element);
         }
-
-        let event = CastMagickEvent { kind, elements };
-        Ok(event)
+        Ok(CastMagickEvent { kind, elements })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DamageOwnerEvent {
-    attack_properties: AttackProperty,
-    elements: Element,
+    attack_properties: AttackProperties,
+    elements: Elements,
     amount: f32,
     magnitude: f32,
     velocity_based: bool,
@@ -279,20 +358,18 @@ pub struct DamageOwnerEvent {
 
 impl DamageOwnerEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let attack_properties = AttackProperty::read(reader)?;
-        let elements = Element::read(reader)?;
+        let attack_properties = AttackProperties::read(reader)?;
+        let elements = Elements::read(reader)?;
         let amount = reader.read_f32::<LittleEndian>()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
         let velocity_based = reader.read_bool()?;
-
-        let event = DamageOwnerEvent {
+        Ok(DamageOwnerEvent {
             attack_properties,
             elements,
             amount,
             magnitude,
             velocity_based,
-        };
-        Ok(event)
+        })
     }
 }
 
@@ -322,7 +399,7 @@ impl EventConditionKind {
 pub struct EventConditions {
     kind: EventConditionKind,
     hitpoints: f32,
-    element: Element,
+    element: Elements,
     threshold: f32,
     time: f32,
     repeat: bool,
@@ -333,7 +410,7 @@ impl EventConditions {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let kind = EventConditionKind::read(reader)?;
         let hitpoints = reader.read_i32::<LittleEndian>()? as f32;
-        let element = Element::read(reader)?;
+        let element = Elements::read(reader)?;
         let threshold = reader.read_f32::<LittleEndian>()?;
         let time = reader.read_f32::<LittleEndian>()?;
         let repeat = reader.read_bool()?;
@@ -345,7 +422,7 @@ impl EventConditions {
             events.push(event);
         }
 
-        let conditions = EventConditions {
+        Ok(EventConditions {
             kind,
             hitpoints,
             element,
@@ -353,7 +430,6 @@ impl EventConditions {
             time,
             repeat,
             events,
-        };
-        Ok(conditions)
+        })
     }
 }

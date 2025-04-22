@@ -4,11 +4,11 @@ use anyhow::anyhow;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::content::{color::Color, faction::Faction};
+use crate::content::{color::Color, faction::Factions};
 use crate::ext::MyReadBytesExt;
 
-use super::attack_property::AttackProperty;
-use super::element::Element;
+use super::attack_property::AttackProperties;
+use super::element::Elements;
 use super::resistance::Resistance;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,7 +21,7 @@ pub struct Aura {
     duration: f32,
     radius: f32,
     types: String,
-    factions: Faction,
+    factions: Factions,
 }
 
 impl Aura {
@@ -34,7 +34,7 @@ impl Aura {
         let duration = reader.read_f32::<LittleEndian>()?;
         let radius = reader.read_f32::<LittleEndian>()?;
         let types = reader.read_7bit_length_string()?;
-        let factions = Faction::read(reader)?;
+        let factions = Factions::read(reader)?;
 
         let kind = match kind {
             0 => {
@@ -231,16 +231,16 @@ pub enum BuffKind {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BoostDamageBuff {
-    attack_properties: AttackProperty,
-    elements: Element,
+    attack_properties: AttackProperties,
+    elements: Elements,
     amount: f32,
     magnitude: f32,
 }
 
 impl BoostDamageBuff {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let attack_properties = AttackProperty::read(reader)?;
-        let elements = Element::read(reader)?;
+        let attack_properties = AttackProperties::read(reader)?;
+        let elements = Elements::read(reader)?;
         let amount = reader.read_f32::<LittleEndian>()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
 
@@ -256,16 +256,16 @@ impl BoostDamageBuff {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DealDamageBuff {
-    attack_properties: AttackProperty,
-    elements: Element,
+    attack_properties: AttackProperties,
+    elements: Elements,
     amount: f32,
     magnitude: f32,
 }
 
 impl DealDamageBuff {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let attack_properties = AttackProperty::read(reader)?;
-        let elements = Element::read(reader)?;
+        let attack_properties = AttackProperties::read(reader)?;
+        let elements = Elements::read(reader)?;
         let amount = reader.read_f32::<LittleEndian>()?;
         let magnitude = reader.read_f32::<LittleEndian>()?;
 

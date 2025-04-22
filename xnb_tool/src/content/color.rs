@@ -15,7 +15,6 @@ impl Color {
         let r = reader.read_f32::<LittleEndian>()?;
         let g = reader.read_f32::<LittleEndian>()?;
         let b = reader.read_f32::<LittleEndian>()?;
-        let color = Color { r, g, b };
-        Ok(color)
+        Ok(Color { r, g, b })
     }
 }

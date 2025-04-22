@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{ffi::OsStr, fs::File, io::BufReader, path::Path};
 
 use anyhow::Context;
 use args::{Args, Subcommands};
@@ -64,6 +64,9 @@ fn extract_directory(
     let input_path = input_path.as_ref();
     let output_path = output_path.as_ref();
 
+    let mut successes = 0;
+    let mut failures = Vec::new();
+
     for entry in WalkDir::new(input_path) {
         let entry = match entry {
             Ok(v) => v,
@@ -77,16 +80,13 @@ fn extract_directory(
             continue;
         }
 
+        if entry.path().extension() != Some(OsStr::new("xnb")) {
+            eprintln!("\nskipping non xnb file: {}", entry.path().display());
+            continue;
+        }
+
         let relative_path = entry.path().strip_prefix(input_path)?;
         eprintln!("\nextracting entry: {}", relative_path.display());
-
-        // if relative_path
-        //     .display()
-        //     .to_string()
-        //     .ends_with("dwarf_engineer_wrench_0.xnb")
-        // {
-        //     println!("break");
-        // }
 
         if let Err(e) = extract_file(
             entry.path(),
@@ -94,10 +94,21 @@ fn extract_directory(
             overwrite,
             dump_raw,
         ) {
+            failures.push(relative_path.display().to_string());
             eprintln!("failed to extract entry: {e}");
             for (i, cause) in e.chain().enumerate() {
                 eprintln!("  {i}: {cause}");
             }
+        } else {
+            successes += 1;
+        }
+    }
+
+    println!("\nextracted {successes} files");
+    if !failures.is_empty() {
+        println!("failed to extract {} files:", failures.len());
+        for f in &failures {
+            println!("  {f}");
         }
     }
 

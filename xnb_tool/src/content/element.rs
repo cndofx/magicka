@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 bitflags! {
     #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct Element: u16 {
+    pub struct Elements: u16 {
         const None = 0;
         const Earth = 1;
         const Water = 2;
@@ -34,11 +34,11 @@ bitflags! {
     }
 }
 
-impl Element {
+impl Elements {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let value = reader.read_i32::<LittleEndian>()?;
         let element =
-            Element::from_bits(value as u16).ok_or_else(|| anyhow!("unknown element: {value}"))?;
+            Elements::from_bits(value as u16).ok_or_else(|| anyhow!("unknown element: {value}"))?;
         Ok(element)
     }
 }

@@ -13,7 +13,7 @@ use super::{
     passive_ability::PassiveAbility,
     resistance::Resistance,
     sound::{Bank, Sound},
-    special_ability::SpecialAbility,
+    special_ability::{SpecialAbility, SpecialAbilityWithCooldown},
     weapon_class::WeaponClass,
 };
 
@@ -35,7 +35,7 @@ pub struct Item {
     passive_ability: PassiveAbility,
     effects: Vec<String>,
     lights: Vec<Light>,
-    special_ability: Option<SpecialAbility>,
+    special_ability: Option<SpecialAbilityWithCooldown>,
     melee_range: f32,
     melee_multi_hit: bool,
     melee_conditions: Vec<EventConditions>,
@@ -113,7 +113,7 @@ impl Item {
 
         let has_special_ability = reader.read_bool()?;
         let special_ability = if has_special_ability {
-            let ability = SpecialAbility::read(reader)?;
+            let ability = SpecialAbilityWithCooldown::read(reader)?;
             Some(ability)
         } else {
             None

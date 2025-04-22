@@ -3,19 +3,19 @@ use std::io::Read;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use super::element::Element;
+use super::element::Elements;
 use crate::ext::MyReadBytesExt;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Resistance {
-    pub element: Element,
+    pub element: Elements,
     pub multiplier: f32,
     pub modifier: f32,
     pub status_immunity: bool,
 }
 
 impl Resistance {
-    pub fn new(element: Element) -> Self {
+    pub fn new(element: Elements) -> Self {
         Self {
             element,
             multiplier: 1.0,
@@ -25,7 +25,7 @@ impl Resistance {
     }
 
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let element = Element::read(reader)?;
+        let element = Elements::read(reader)?;
         let multiplier = reader.read_f32::<LittleEndian>()?;
         let modifier = reader.read_f32::<LittleEndian>()?;
         let status_immunity = reader.read_bool()?;
