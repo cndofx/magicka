@@ -122,6 +122,11 @@ impl Xnb {
         if exists && !overwrite {
             anyhow::bail!("{} already exists", file_path.display());
         }
+        let directory = file_path.parent().unwrap();
+        if !directory.try_exists()? {
+            std::fs::create_dir_all(directory)
+                .with_context(|| format!("failed to create directory {}", directory.display()))?;
+        }
         let mut file = File::create(&file_path)?;
 
         let json = serde_json::to_string_pretty(&content).context("failed to serialize content")?;

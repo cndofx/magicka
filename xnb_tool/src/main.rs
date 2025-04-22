@@ -37,8 +37,6 @@ fn extract(
         anyhow::bail!("input path {} does not exist", input_path.display());
     }
 
-    std::fs::create_dir_all(output_path).context("failed to create output directory")?;
-
     if input_path.is_file() {
         extract_file(
             input_path,
@@ -71,10 +69,12 @@ fn extract_directory(
             }
         };
 
-        let relative_path = entry.path().strip_prefix(input_path)?;
-        dbg!(entry.path(), relative_path);
+        if entry.path().is_dir() {
+            continue;
+        }
 
-        eprintln!("extracting entry: {}", relative_path.display());
+        let relative_path = entry.path().strip_prefix(input_path)?;
+        eprintln!("\nextracting entry: {}", relative_path.display());
 
         if let Err(e) = extract_file(entry.path(), output_path.join(relative_path), overwrite) {
             eprintln!("failed to extract entry: {e}");
