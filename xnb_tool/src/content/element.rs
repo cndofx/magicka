@@ -35,7 +35,7 @@ bitflags! {
 }
 
 impl Element {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let value = reader.read_i32::<LittleEndian>()?;
         let element =
             Element::from_bits(value as u16).ok_or_else(|| anyhow!("unknown element: {value}"))?;

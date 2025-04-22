@@ -26,7 +26,7 @@ pub enum Content {
 }
 
 impl Content {
-    pub fn read(mut reader: impl Read, type_readers: &[TypeReader]) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read, type_readers: &[TypeReader]) -> anyhow::Result<Self> {
         let type_id = reader.read_7bit_encoded_i32()? as usize;
         if type_id == 0 {
             return Ok(Content::Null);
@@ -35,7 +35,7 @@ impl Content {
         dbg!(type_reader);
 
         if type_reader.name.starts_with(ITEM_READER_NAME) {
-            let item = Item::read(&mut reader)?;
+            let item = Item::read(reader)?;
             return Ok(Content::Item(item));
         } else {
             anyhow::bail!("unknown type reader: {}", type_reader.name);

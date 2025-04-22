@@ -94,8 +94,8 @@ fn extract_file(
     overwrite: bool,
 ) -> anyhow::Result<()> {
     let file = File::open(input_file_path).context("failed to open file")?;
-    let reader = BufReader::new(file);
-    let xnb = Xnb::parse(reader).context("failed to parse xnb header")?;
+    let mut reader = BufReader::new(file);
+    let xnb = Xnb::parse(&mut reader).context("failed to parse xnb header")?;
     xnb.extract(output_file_path, overwrite)
         .context("failed to extract xnb")?;
     Ok(())

@@ -15,14 +15,14 @@ pub struct SpecialAbility {
 }
 
 impl SpecialAbility {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let kind = reader.read_7bit_length_string()?;
         let animation = reader.read_7bit_length_string()?;
         let hash = reader.read_7bit_length_string()?;
         let num_elements = reader.read_i32::<LittleEndian>()?;
         let mut elements = Vec::with_capacity(num_elements as usize);
         for _ in 0..num_elements {
-            let element = Element::read(&mut reader)?;
+            let element = Element::read(reader)?;
             elements.push(element);
         }
 

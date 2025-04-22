@@ -11,7 +11,7 @@ pub struct Color {
 }
 
 impl Color {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let r = reader.read_f32::<LittleEndian>()?;
         let g = reader.read_f32::<LittleEndian>()?;
         let b = reader.read_f32::<LittleEndian>()?;

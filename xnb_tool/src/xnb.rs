@@ -47,7 +47,7 @@ impl Xnb {
         &self.data
     }
 
-    pub fn parse(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn parse(reader: &mut impl Read) -> anyhow::Result<Self> {
         let mut magic = [0u8; 3];
         reader.read_exact(&mut magic)?;
         if &magic != b"XNB" {
@@ -125,9 +125,11 @@ impl Xnb {
             let decompressed = self
                 .decompress()
                 .context("failed to decompress xnb content")?;
-            XnbContent::parse(decompressed.as_slice())?
+            let mut reader = Cursor::new(decompressed);
+            XnbContent::parse(&mut reader)?
         } else {
-            XnbContent::parse(self.data.as_slice())?
+            let mut reader = Cursor::new(&self.data);
+            XnbContent::parse(&mut reader)?
         };
 
         // if self.header.compressed {
@@ -189,7 +191,7 @@ pub struct TypeReader {
 }
 
 impl XnbContent {
-    pub fn parse(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn parse(reader: &mut impl Read) -> anyhow::Result<Self> {
         let reader_count = reader.read_7bit_encoded_i32()?;
         let mut readers = Vec::with_capacity(reader_count as usize);
         for _ in 0..reader_count {
@@ -203,7 +205,7 @@ impl XnbContent {
         // let shared_count = reader.read_7bit_encoded_i32()?;
         // dbg!(&shared_count);
 
-        let primary = Content::read(&mut reader, &readers)?;
+        let primary = Content::read(reader, &readers)?;
         dbg!(&primary);
 
         todo!()

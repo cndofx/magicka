@@ -41,7 +41,7 @@ pub struct Item {
 }
 
 impl Item {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let name = reader.read_7bit_length_string()?;
         let locale_name = reader.read_7bit_length_string()?;
         let locale_description = reader.read_7bit_length_string()?;
@@ -50,7 +50,7 @@ impl Item {
         let mut sounds = Vec::with_capacity(num_sounds as usize);
         for _ in 0..num_sounds {
             let cue = reader.read_7bit_length_string()?;
-            let bank = Bank::read(&mut reader)?;
+            let bank = Bank::read(reader)?;
             let sound = Sound { cue, bank };
             sounds.push(sound);
         }
@@ -69,11 +69,11 @@ impl Item {
         let num_resistances = reader.read_i32::<LittleEndian>()?;
         let mut resistances = Vec::with_capacity(num_resistances as usize);
         for _ in 0..num_resistances {
-            let resistance = Resistance::read(&mut reader)?;
+            let resistance = Resistance::read(reader)?;
             resistances.push(resistance);
         }
 
-        let passive_ability = PassiveAbility::read(&mut reader)?;
+        let passive_ability = PassiveAbility::read(reader)?;
 
         let num_effects = reader.read_i32::<LittleEndian>()?;
         let mut effects = Vec::with_capacity(num_effects as usize);
@@ -85,13 +85,13 @@ impl Item {
         let num_lights = reader.read_i32::<LittleEndian>()?;
         let mut lights = Vec::with_capacity(num_lights as usize);
         for _ in 0..num_lights {
-            let light = Light::read(&mut reader)?;
+            let light = Light::read(reader)?;
             lights.push(light);
         }
 
         let has_special_ability = reader.read_bool()?;
         let special_ability = if has_special_ability {
-            let ability = SpecialAbility::read(&mut reader)?;
+            let ability = SpecialAbility::read(reader)?;
             Some(ability)
         } else {
             None
@@ -102,7 +102,7 @@ impl Item {
         let num_melee_conditions = reader.read_i32::<LittleEndian>()?;
         let mut melee_conditions = Vec::with_capacity(num_melee_conditions as usize);
         for _ in 0..num_melee_conditions {
-            let condition = EventConditions::read(&mut reader)?;
+            let condition = EventConditions::read(reader)?;
             melee_conditions.push(condition);
         }
 

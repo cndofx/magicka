@@ -24,8 +24,8 @@ impl Resistance {
         }
     }
 
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
-        let element = Element::read(&mut reader)?;
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let element = Element::read(reader)?;
         let multiplier = reader.read_f32::<LittleEndian>()?;
         let modifier = reader.read_f32::<LittleEndian>()?;
         let status_immunity = reader.read_bool()?;

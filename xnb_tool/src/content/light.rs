@@ -28,10 +28,10 @@ pub struct Light {
 }
 
 impl Light {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let radius = reader.read_f32::<LittleEndian>()?;
-        let diffuse_color = Color::read(&mut reader)?;
-        let ambient_color = Color::read(&mut reader)?;
+        let diffuse_color = Color::read(reader)?;
+        let ambient_color = Color::read(reader)?;
         let specular_amount = reader.read_f32::<LittleEndian>()?;
         let variation_kind = reader.read_u8()?;
         let variation_kind = LightVariation::from_repr(variation_kind)

@@ -33,7 +33,7 @@ pub struct PassiveAbility {
 }
 
 impl PassiveAbility {
-    pub fn read(mut reader: impl Read) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let kind = reader.read_u8()?;
         let kind = PassiveAbilityKind::from_repr(kind)
             .ok_or_else(|| anyhow!("unknown passive ability kind: {kind}"))?;
