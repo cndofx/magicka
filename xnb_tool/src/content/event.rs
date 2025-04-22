@@ -13,6 +13,8 @@ pub enum Event {
     Damage(DamageEvent),
     Splash(SplashEvent),
     Sound(SoundEvent),
+    Effect(EffectEvent),
+    Remove(RemoveEvent),
 }
 
 impl Event {
@@ -30,6 +32,53 @@ impl Event {
             2 => {
                 let event = SoundEvent::read(reader)?;
                 Ok(Event::Sound(event))
+            }
+            3 => {
+                let event = EffectEvent::read(reader)?;
+                Ok(Event::Effect(event))
+            }
+            4 => {
+                let event = RemoveEvent::read(reader)?;
+                Ok(Event::Remove(event))
+            }
+            5 => {
+                todo!("camera shake event");
+            }
+            6 => {
+                todo!("decal event");
+            }
+            7 => {
+                todo!("blast event (invalid?)");
+            }
+            8 => {
+                todo!("spawn event");
+            }
+            9 => {
+                todo!("overkill event");
+            }
+            10 => {
+                todo!("spawn gibs event");
+            }
+            11 => {
+                todo!("spawn item event");
+            }
+            12 => {
+                todo!("spawn magick event");
+            }
+            13 => {
+                todo!("spawn missile event");
+            }
+            14 => {
+                todo!("light event");
+            }
+            15 => {
+                todo!("cast magick event");
+            }
+            16 => {
+                todo!("damage owner event");
+            }
+            17 => {
+                todo!("callback event (invalid?)");
             }
             _ => Err(anyhow!("unknown event kind: {kind}")),
         }
@@ -100,6 +149,41 @@ impl SoundEvent {
             magnitude,
             stop_on_remove,
         };
+        Ok(event)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct EffectEvent {
+    follow: bool,
+    world_aligned: bool,
+    effect: String,
+}
+
+impl EffectEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let follow = reader.read_bool()?;
+        let world_aligned = reader.read_bool()?;
+        let effect = reader.read_7bit_length_string()?;
+
+        let event = EffectEvent {
+            follow,
+            world_aligned,
+            effect,
+        };
+        Ok(event)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RemoveEvent {
+    bounces: i32,
+}
+
+impl RemoveEvent {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let bounces = reader.read_i32::<LittleEndian>()?;
+        let event = RemoveEvent { bounces };
         Ok(event)
     }
 }

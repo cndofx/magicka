@@ -125,7 +125,7 @@ impl Xnb {
             let decompressed = self
                 .decompress()
                 .context("failed to decompress xnb content")?;
-            let mut reader = Cursor::new(decompressed);
+            let mut reader = Cursor::new(&decompressed);
             XnbContent::parse(&mut reader)?
         } else {
             let mut reader = Cursor::new(&self.data);

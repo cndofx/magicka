@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::ext::MyReadBytesExt;
 
 use super::{
+    aura::Aura,
     event::EventConditions,
     light::Light,
     passive_ability::PassiveAbility,
@@ -38,6 +39,27 @@ pub struct Item {
     melee_range: f32,
     melee_multi_hit: bool,
     melee_conditions: Vec<EventConditions>,
+    ranged_range: f32,
+    facing: bool,
+    homing_strength: f32,
+    ranged_elevation: f32,
+    ranged_danger: f32,
+    gun_range: f32,
+    gun_clip: i32,
+    gun_rate: i32,
+    gun_accuracy: f32,
+    gun_sound_cue: String,
+    gun_muzzle_effect: String,
+    gun_shell_effect: String,
+    gun_tracer_velocity: f32,
+    gun_non_tracer: String,
+    gun_tracer: String,
+    gun_conditions: Vec<EventConditions>,
+    projectile_model: String,
+    ranged_conditions: Vec<EventConditions>,
+    scale: f32,
+    model: String,
+    auras: Vec<Aura>,
 }
 
 impl Item {
@@ -106,6 +128,47 @@ impl Item {
             melee_conditions.push(condition);
         }
 
+        let ranged_range = reader.read_f32::<LittleEndian>()?;
+        let facing = reader.read_bool()?;
+        let homing_strength = reader.read_f32::<LittleEndian>()?;
+        let ranged_elevation = reader.read_f32::<LittleEndian>()?;
+        let ranged_danger = reader.read_f32::<LittleEndian>()?;
+        let gun_range = reader.read_f32::<LittleEndian>()?;
+        let gun_clip = reader.read_i32::<LittleEndian>()?;
+        let gun_rate = reader.read_i32::<LittleEndian>()?;
+        let gun_accuracy = reader.read_f32::<LittleEndian>()?;
+        let gun_sound_cue = reader.read_7bit_length_string()?;
+        let gun_muzzle_effect = reader.read_7bit_length_string()?;
+        let gun_shell_effect = reader.read_7bit_length_string()?;
+        let gun_tracer_velocity = reader.read_f32::<LittleEndian>()?;
+        let gun_non_tracer = reader.read_7bit_length_string()?;
+        let gun_tracer = reader.read_7bit_length_string()?;
+
+        let num_gun_conditions = reader.read_i32::<LittleEndian>()?;
+        let mut gun_conditions = Vec::with_capacity(num_gun_conditions as usize);
+        for _ in 0..num_gun_conditions {
+            let condition = EventConditions::read(reader)?;
+            gun_conditions.push(condition);
+        }
+
+        let projectile_model = reader.read_7bit_length_string()?;
+
+        let num_ranged_conditions = reader.read_i32::<LittleEndian>()?;
+        let mut ranged_conditions = Vec::with_capacity(num_ranged_conditions as usize);
+        for _ in 0..num_ranged_conditions {
+            let condition = EventConditions::read(reader)?;
+            ranged_conditions.push(condition);
+        }
+
+        let scale = reader.read_f32::<LittleEndian>()?;
+        let model = reader.read_7bit_length_string()?;
+        let num_auras = reader.read_i32::<LittleEndian>()?;
+        let mut auras = Vec::with_capacity(num_auras as usize);
+        for _ in 0..num_auras {
+            let aura = Aura::read(reader)?;
+            auras.push(aura);
+        }
+
         let item = Item {
             name,
             locale_name,
@@ -127,6 +190,27 @@ impl Item {
             melee_range,
             melee_multi_hit,
             melee_conditions,
+            ranged_range,
+            facing,
+            homing_strength,
+            ranged_elevation,
+            ranged_danger,
+            gun_range,
+            gun_clip,
+            gun_rate,
+            gun_accuracy,
+            gun_sound_cue,
+            gun_muzzle_effect,
+            gun_shell_effect,
+            gun_tracer_velocity,
+            gun_non_tracer,
+            gun_tracer,
+            gun_conditions,
+            projectile_model,
+            ranged_conditions,
+            scale,
+            model,
+            auras,
         };
         Ok(item)
     }

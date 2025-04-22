@@ -6,9 +6,11 @@ use crate::ext::MyReadBytesExt;
 use crate::xnb::TypeReader;
 
 pub mod attack_property;
+pub mod aura;
 pub mod color;
 pub mod element;
 pub mod event;
+pub mod faction;
 pub mod item;
 pub mod light;
 pub mod passive_ability;
