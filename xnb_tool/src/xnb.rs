@@ -100,17 +100,39 @@ impl Xnb {
         Ok(xnb)
     }
 
-    pub fn extract(&self, file_path: impl AsRef<Path>, overwrite: bool) -> anyhow::Result<()> {
-        let content = if self.header.compressed {
-            let decompressed = self
-                .decompress()
-                .context("failed to decompress xnb content")?;
-            let mut reader = Cursor::new(&decompressed);
-            XnbContent::parse(&mut reader)?
+    pub fn extract(
+        &self,
+        file_path: impl AsRef<Path>,
+        overwrite: bool,
+        dump_raw: bool,
+    ) -> anyhow::Result<()> {
+        let directory = file_path.as_ref().parent().unwrap();
+        if !directory.try_exists()? {
+            std::fs::create_dir_all(directory)
+                .with_context(|| format!("failed to create directory {}", directory.display()))?;
+        }
+
+        let raw = if self.header.compressed {
+            self.decompress()
+                .context("failed to decompress xnb content")?
         } else {
-            let mut reader = Cursor::new(&self.data);
-            XnbContent::parse(&mut reader)?
+            // TODO: find a way to avoid the clone, maybe COW?
+            self.data.clone()
         };
+
+        if dump_raw {
+            let file_path = file_path.as_ref().with_extension("raw");
+            let exists = file_path.try_exists()?;
+            if exists && !overwrite {
+                anyhow::bail!("{} already exists", file_path.display());
+            }
+            let mut file = File::create(&file_path)?;
+            file.write_all(&raw)?;
+            eprintln!("saved to {}", file_path.display());
+        }
+
+        let mut reader = Cursor::new(&raw);
+        let content = XnbContent::parse(&mut reader)?;
 
         let extension = match content.content {
             Content::Null => todo!(),
@@ -122,11 +144,7 @@ impl Xnb {
         if exists && !overwrite {
             anyhow::bail!("{} already exists", file_path.display());
         }
-        let directory = file_path.parent().unwrap();
-        if !directory.try_exists()? {
-            std::fs::create_dir_all(directory)
-                .with_context(|| format!("failed to create directory {}", directory.display()))?;
-        }
+
         let mut file = File::create(&file_path)?;
 
         let json = serde_json::to_string_pretty(&content).context("failed to serialize content")?;
@@ -196,7 +214,10 @@ impl XnbContent {
 
         let mut rem = Vec::new();
         reader.read_to_end(&mut rem)?;
-        debug_assert!(rem.len() == 0);
+        if rem.len() != 0 {
+            eprintln!("WARNING: {} bytes left in XNB", rem.len());
+            dbg!(&rem);
+        }
 
         let content = XnbContent {
             readers,

@@ -22,7 +22,7 @@ pub struct Light {
     diffuse_color: Color,
     ambient_color: Color,
     specular_amount: f32,
-    variation_kind: LightVariation,
+    variation: LightVariation,
     variation_amount: f32,
     variation_speed: f32,
 }
@@ -44,7 +44,7 @@ impl Light {
             diffuse_color,
             ambient_color,
             specular_amount,
-            variation_kind,
+            variation: variation_kind,
             variation_amount,
             variation_speed,
         };

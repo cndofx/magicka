@@ -9,6 +9,7 @@ use crate::ext::MyReadBytesExt;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpecialAbility {
     pub kind: String,
+    pub cooldown: f32,
     pub animation: String,
     pub hash: String,
     pub elements: Vec<Element>,
@@ -16,6 +17,7 @@ pub struct SpecialAbility {
 
 impl SpecialAbility {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let cooldown = reader.read_f32::<LittleEndian>()?;
         let kind = reader.read_7bit_length_string()?;
         let animation = reader.read_7bit_length_string()?;
         let hash = reader.read_7bit_length_string()?;
@@ -28,6 +30,7 @@ impl SpecialAbility {
 
         let ability = SpecialAbility {
             kind,
+            cooldown,
             animation,
             hash,
             elements,

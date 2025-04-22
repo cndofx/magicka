@@ -133,6 +133,7 @@ impl Item {
         let homing_strength = reader.read_f32::<LittleEndian>()?;
         let ranged_elevation = reader.read_f32::<LittleEndian>()?;
         let ranged_danger = reader.read_f32::<LittleEndian>()?;
+
         let gun_range = reader.read_f32::<LittleEndian>()?;
         let gun_clip = reader.read_i32::<LittleEndian>()?;
         let gun_rate = reader.read_i32::<LittleEndian>()?;
@@ -162,6 +163,7 @@ impl Item {
 
         let scale = reader.read_f32::<LittleEndian>()?;
         let model = reader.read_7bit_length_string()?;
+
         let num_auras = reader.read_i32::<LittleEndian>()?;
         let mut auras = Vec::with_capacity(num_auras as usize);
         for _ in 0..num_auras {

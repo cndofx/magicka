@@ -19,5 +19,9 @@ pub enum Subcommands {
         /// Overwrite existing files
         #[arg(short, long)]
         overwrite: bool,
+
+        /// Dump raw decompressed data in addition to JSON
+        #[arg(short, long)]
+        dump_raw: bool,
     },
 }

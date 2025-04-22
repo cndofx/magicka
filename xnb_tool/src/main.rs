@@ -16,8 +16,9 @@ fn main() -> anyhow::Result<()> {
             input,
             output,
             overwrite,
+            dump_raw,
         } => {
-            extract(&input, &output, overwrite)
+            extract(&input, &output, overwrite, dump_raw)
                 .with_context(|| format!("failed to extract {input}"))?;
         }
     }
@@ -29,6 +30,7 @@ fn extract(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
     overwrite: bool,
+    dump_raw: bool,
 ) -> anyhow::Result<()> {
     let input_path = input_path.as_ref();
     let output_path = output_path.as_ref();
@@ -42,9 +44,10 @@ fn extract(
             input_path,
             output_path.join(input_path.file_name().unwrap()),
             overwrite,
+            dump_raw,
         )?;
     } else if input_path.is_dir() {
-        extract_directory(input_path, output_path, overwrite)?;
+        extract_directory(input_path, output_path, overwrite, dump_raw)?;
     } else {
         todo!();
     }
@@ -56,6 +59,7 @@ fn extract_directory(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
     overwrite: bool,
+    dump_raw: bool,
 ) -> anyhow::Result<()> {
     let input_path = input_path.as_ref();
     let output_path = output_path.as_ref();
@@ -76,7 +80,20 @@ fn extract_directory(
         let relative_path = entry.path().strip_prefix(input_path)?;
         eprintln!("\nextracting entry: {}", relative_path.display());
 
-        if let Err(e) = extract_file(entry.path(), output_path.join(relative_path), overwrite) {
+        // if relative_path
+        //     .display()
+        //     .to_string()
+        //     .ends_with("dwarf_engineer_wrench_0.xnb")
+        // {
+        //     println!("break");
+        // }
+
+        if let Err(e) = extract_file(
+            entry.path(),
+            output_path.join(relative_path),
+            overwrite,
+            dump_raw,
+        ) {
             eprintln!("failed to extract entry: {e}");
             for (i, cause) in e.chain().enumerate() {
                 eprintln!("  {i}: {cause}");
@@ -91,11 +108,12 @@ fn extract_file(
     input_file_path: impl AsRef<Path>,
     output_file_path: impl AsRef<Path>,
     overwrite: bool,
+    dump_raw: bool,
 ) -> anyhow::Result<()> {
     let file = File::open(input_file_path).context("failed to open file")?;
     let mut reader = BufReader::new(file);
     let xnb = Xnb::parse(&mut reader).context("failed to parse xnb header")?;
-    xnb.extract(output_file_path, overwrite)
+    xnb.extract(output_file_path, overwrite, dump_raw)
         .context("failed to extract xnb")?;
     Ok(())
 }
