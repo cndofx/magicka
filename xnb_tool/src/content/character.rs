@@ -1,27 +1,23 @@
 use std::io::Read;
 
-use anyhow::anyhow;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     content::{
-        ability::Ability, animation_set::AnimationSet, attachment::Attachment, aura::Buff,
-        blood_kind::BloodKind, boned_effect::BonedEffect, boned_light::BonedLight,
-        character_model::CharacterModel, faction::Factions, gib::Gib, movement::Movement,
+        ability::Ability, attachment::Attachment, aura::Buff, blood_kind::BloodKind,
+        boned_effect::BonedEffect, boned_light::BonedLight, character_model::CharacterModel,
+        faction::Factions, gib::Gib, movement::Movement,
     },
     ext::MyReadBytesExt,
 };
 
 use super::{
+    animation::AnimationSet,
     aura::Aura,
     event::EventConditions,
-    light::Light,
-    passive_ability::PassiveAbility,
     resistance::Resistance,
     sound::{Bank, Sound},
-    special_ability::SpecialAbility,
-    weapon_class::WeaponClass,
 };
 
 pub const MAX_ANIMATION_SETS: usize = 27;

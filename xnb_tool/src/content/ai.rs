@@ -2,14 +2,8 @@ use std::io::Read;
 
 use anyhow::anyhow;
 use bitflags::bitflags;
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::ReadBytesExt;
 use serde::{Deserialize, Serialize};
-
-use super::{
-    attack_property::AttackProperties, element::Elements, light::Light, sound::Bank,
-    vector3::Vector3,
-};
-use crate::ext::MyReadBytesExt;
 
 #[repr(u8)]
 #[derive(strum::FromRepr, Serialize, Deserialize, Debug)]

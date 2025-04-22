@@ -3,8 +3,6 @@ use std::io::Read;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::ext::MyReadBytesExt;
-
 use super::{attack_property::AttackProperties, element::Elements};
 
 #[derive(Serialize, Deserialize, Debug)]

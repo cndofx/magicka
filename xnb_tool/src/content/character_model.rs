@@ -1,25 +1,11 @@
 use std::io::Read;
 
-use anyhow::anyhow;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    content::{blood_kind::BloodKind, boned_light::BonedLight, faction::Factions, gib::Gib},
-    ext::MyReadBytesExt,
-};
+use crate::ext::MyReadBytesExt;
 
-use super::{
-    aura::Aura,
-    color::Color,
-    event::EventConditions,
-    light::Light,
-    passive_ability::PassiveAbility,
-    resistance::Resistance,
-    sound::{Bank, Sound},
-    special_ability::SpecialAbility,
-    weapon_class::WeaponClass,
-};
+use super::color::Color;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CharacterModel {

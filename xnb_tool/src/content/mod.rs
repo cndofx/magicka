@@ -9,9 +9,7 @@ use crate::xnb::TypeReader;
 
 pub mod ability;
 pub mod ai;
-pub mod animation_action;
-pub mod animation_clip;
-pub mod animation_set;
+pub mod animation;
 pub mod attachment;
 pub mod attack_property;
 pub mod aura;

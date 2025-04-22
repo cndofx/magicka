@@ -6,20 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ext::MyReadBytesExt;
 
-use super::{
-    aura::Aura,
-    color::Color,
-    damage::Damage,
-    element::Elements,
-    event::EventConditions,
-    light::Light,
-    passive_ability::PassiveAbility,
-    resistance::Resistance,
-    sound::{Bank, Sound},
-    special_ability::SpecialAbility,
-    vector3::Vector3,
-    weapon_class::WeaponClass,
-};
+use super::{damage::Damage, element::Elements, vector3::Vector3};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ability {

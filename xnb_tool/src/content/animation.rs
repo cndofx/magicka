@@ -5,25 +5,65 @@ use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    content::{blood_kind::BloodKind, boned_light::BonedLight, faction::Factions, gib::Gib},
-    ext::MyReadBytesExt,
-};
+use crate::ext::MyReadBytesExt;
 
 use super::{
-    aura::Aura,
-    boned_effect::BonedEffect,
-    color::Color,
     damage::Damage,
-    event::EventConditions,
-    light::Light,
-    passive_ability::PassiveAbility,
-    resistance::Resistance,
     sound::{Bank, Sound},
     special_ability::SpecialAbility,
     vector3::Vector3,
-    weapon_class::{self, WeaponClass},
 };
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AnimationSet {
+    clips: Vec<AnimationClip>,
+}
+
+impl AnimationSet {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let num_clips = reader.read_i32::<LittleEndian>()?;
+        let mut clips = Vec::with_capacity(num_clips as usize);
+        for _ in 0..num_clips {
+            let clip = AnimationClip::read(reader)?;
+            clips.push(clip);
+        }
+        Ok(AnimationSet { clips })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AnimationClip {
+    kind: String,
+    key: String,
+    speed: f32,
+    blend_time: f32,
+    loops: bool,
+    actions: Vec<AnimationAction>,
+}
+
+impl AnimationClip {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let kind = reader.read_7bit_length_string()?;
+        let key = reader.read_7bit_length_string()?;
+        let speed = reader.read_f32::<LittleEndian>()?;
+        let blend_time = reader.read_f32::<LittleEndian>()?;
+        let loops = reader.read_bool()?;
+        let num_actions = reader.read_i32::<LittleEndian>()?;
+        let mut actions = Vec::with_capacity(num_actions as usize);
+        for _ in 0..num_actions {
+            let action = AnimationAction::read(reader)?;
+            actions.push(action);
+        }
+        Ok(AnimationClip {
+            kind,
+            key,
+            speed,
+            blend_time,
+            loops,
+            actions,
+        })
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnimationAction {

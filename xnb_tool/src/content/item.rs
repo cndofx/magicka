@@ -13,7 +13,7 @@ use super::{
     passive_ability::PassiveAbility,
     resistance::Resistance,
     sound::{Bank, Sound},
-    special_ability::{SpecialAbility, SpecialAbilityWithCooldown},
+    special_ability::SpecialAbilityWithCooldown,
     weapon_class::WeaponClass,
 };
 
