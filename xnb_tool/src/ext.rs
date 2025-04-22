@@ -4,7 +4,7 @@ pub trait MyReadBytesExt: ReadBytesExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
     fn read_7bit_encoded_i32(&mut self) -> std::io::Result<i32>;
     fn read_7bit_length_string(&mut self) -> std::io::Result<String>;
-    fn read_null_terminated_string(&mut self) -> std::io::Result<String>;
+    // fn read_null_terminated_string(&mut self) -> std::io::Result<String>;
 }
 
 impl<R: ReadBytesExt> MyReadBytesExt for R {
@@ -38,15 +38,15 @@ impl<R: ReadBytesExt> MyReadBytesExt for R {
         Ok(s)
     }
 
-    fn read_null_terminated_string(&mut self) -> std::io::Result<String> {
-        let mut s = String::new();
-        loop {
-            let c = self.read_u8()? as char;
-            if c == '\0' {
-                break;
-            }
-            s.push(c);
-        }
-        Ok(s)
-    }
+    // fn read_null_terminated_string(&mut self) -> std::io::Result<String> {
+    //     let mut s = String::new();
+    //     loop {
+    //         let c = self.read_u8()? as char;
+    //         if c == '\0' {
+    //             break;
+    //         }
+    //         s.push(c);
+    //     }
+    //     Ok(s)
+    // }
 }

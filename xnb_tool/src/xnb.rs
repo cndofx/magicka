@@ -137,6 +137,7 @@ impl Xnb {
         let extension = match content.content {
             Content::Null => todo!(),
             Content::Item(..) => "item.json",
+            Content::Character(..) => "character.json",
         };
 
         let file_path = file_path.as_ref().with_extension(extension);
@@ -196,7 +197,7 @@ pub struct XnbContent {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TypeReader {
     pub name: String,
-    pub version: i32,
+    pub unk: [u8; 5],
 }
 
 impl XnbContent {
@@ -204,9 +205,10 @@ impl XnbContent {
         let reader_count = reader.read_7bit_encoded_i32()?;
         let mut readers = Vec::with_capacity(reader_count as usize);
         for _ in 0..reader_count {
-            let name = reader.read_null_terminated_string()?;
-            let version = reader.read_i32::<LittleEndian>()?;
-            let reader = TypeReader { name, version };
+            let name = reader.read_7bit_length_string()?;
+            let mut unk = [0; 5];
+            reader.read_exact(&mut unk)?;
+            let reader = TypeReader { name, unk };
             readers.push(reader);
         }
 
