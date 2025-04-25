@@ -3,6 +3,7 @@ use std::io::Read;
 use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 use crate::ext::MyReadBytesExt;
@@ -11,7 +12,6 @@ use super::{
     damage::Damage,
     sound::{Bank, Sound},
     special_ability::SpecialAbility,
-    vector3::Vector3,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -230,12 +230,12 @@ pub struct FootstepAnimationAction;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MoveAnimationAction {
-    pub velocity: Vector3,
+    pub velocity: Vec3,
 }
 
 impl MoveAnimationAction {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
-        let velocity = Vector3::read(reader)?;
+        let velocity = reader.read_vec3()?;
         Ok(MoveAnimationAction { velocity })
     }
 }
@@ -462,14 +462,14 @@ impl CastSpellAnimationAction {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpawnMissileAnimationAction {
     pub weapon_slot: i32,
-    pub velocity: Vector3,
+    pub velocity: Vec3,
     pub aligned: bool,
 }
 
 impl SpawnMissileAnimationAction {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let weapon_slot = reader.read_i32::<LittleEndian>()?;
-        let velocity = Vector3::read(reader)?;
+        let velocity = reader.read_vec3()?;
         let aligned = reader.read_bool()?;
         Ok(SpawnMissileAnimationAction {
             weapon_slot,
@@ -567,13 +567,13 @@ impl WeaponVisibilityAnimationAction {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DetachItemAnimationAction {
     pub weapon_slot: i32,
-    pub velocity: Vector3,
+    pub velocity: Vec3,
 }
 
 impl DetachItemAnimationAction {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let weapon_slot = reader.read_i32::<LittleEndian>()?;
-        let velocity = Vector3::read(reader)?;
+        let velocity = reader.read_vec3()?;
         Ok(DetachItemAnimationAction {
             weapon_slot,
             velocity,

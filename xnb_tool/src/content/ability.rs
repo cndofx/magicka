@@ -2,11 +2,12 @@ use std::io::Read;
 
 use anyhow::anyhow;
 use byteorder::{LittleEndian, ReadBytesExt};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 use crate::ext::MyReadBytesExt;
 
-use super::{damage::Damage, element::Elements, vector3::Vector3};
+use super::{damage::Damage, element::Elements};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ability {
@@ -148,7 +149,7 @@ pub struct DashAbility {
     pub min_range: f32,
     pub max_range: f32,
     pub arc: f32,
-    pub velocity: Vector3,
+    pub velocity: Vec3,
 }
 
 impl DashAbility {
@@ -156,7 +157,7 @@ impl DashAbility {
         let min_range = reader.read_f32::<LittleEndian>()?;
         let max_range = reader.read_f32::<LittleEndian>()?;
         let arc = reader.read_f32::<LittleEndian>()?;
-        let velocity = Vector3::read(reader)?;
+        let velocity = reader.read_vec3()?;
         Ok(DashAbility {
             min_range,
             max_range,

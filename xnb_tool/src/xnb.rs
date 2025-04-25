@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Context;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use image::{ExtendedColorType, ImageEncoder, codecs::png::PngEncoder};
 use lzxd::Lzxd;
 use serde::{Deserialize, Serialize};
 
@@ -134,10 +135,20 @@ impl Xnb {
         let mut reader = Cursor::new(&raw);
         let content = XnbContent::parse(&mut reader)?;
 
-        let extension = match content.content {
-            Content::Null => todo!(),
+        let extension = match content.primary_content {
+            Content::Null => {
+                eprintln!("WARNING: null content");
+                return Ok(());
+            }
+            Content::String(..) => "string.json",
             Content::Item(..) => "item.json",
             Content::Character(..) => "character.json",
+            Content::Texture2D(..) => "texture2d.json",
+            Content::Model(..) => "model.json",
+            Content::VertexDeclaration(..) => "vertexdecl.json",
+            Content::VertexBuffer(..) => "vertexbuffer.json",
+            Content::IndexBuffer(..) => "indexbuffer.json",
+            Content::RenderDeferredEffect(..) => "renderdeferredeffect.json",
         };
 
         let file_path = file_path.as_ref().with_extension(extension);
@@ -152,6 +163,26 @@ impl Xnb {
         file.write_all(json.as_bytes())?;
 
         eprintln!("saved to {}", file_path.display());
+
+        if let Content::Texture2D(texture) = &content.primary_content {
+            let file_path = file_path.with_extension("png");
+            let exists = file_path.try_exists()?;
+            if exists && !overwrite {
+                anyhow::bail!("{} already exists", file_path.display());
+            }
+            let mut file = File::create(&file_path).context("failed to create image file")?;
+
+            let pixels = texture.decompress()?;
+            let encoder = PngEncoder::new(&mut file);
+            encoder.write_image(
+                &pixels,
+                texture.width,
+                texture.height,
+                ExtendedColorType::Rgba8,
+            )?;
+
+            eprintln!("saved to {}", file_path.display());
+        }
 
         Ok(())
     }
@@ -190,14 +221,15 @@ impl Xnb {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct XnbContent {
-    readers: Vec<TypeReader>,
-    content: Content,
+    pub readers: Vec<TypeReader>,
+    pub primary_content: Content,
+    pub shared_content: Vec<Content>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TypeReader {
     pub name: String,
-    pub unk: [u8; 5],
+    pub version: i32,
 }
 
 impl XnbContent {
@@ -206,24 +238,32 @@ impl XnbContent {
         let mut readers = Vec::with_capacity(reader_count as usize);
         for _ in 0..reader_count {
             let name = reader.read_7bit_length_string()?;
-            let mut unk = [0; 5];
-            reader.read_exact(&mut unk)?;
-            let reader = TypeReader { name, unk };
+            let version = reader.read_i32::<LittleEndian>()?;
+            let reader = TypeReader { name, version };
             readers.push(reader);
         }
 
-        let primary = Content::read(reader, &readers)?;
+        let shared_content_count = reader.read_7bit_encoded_i32()?;
+
+        let primary_content = Content::read(reader, &readers)?;
+
+        let mut shared_content = Vec::with_capacity(shared_content_count as usize);
+        for _ in 0..shared_content_count {
+            let content = Content::read(reader, &readers)?;
+            shared_content.push(content);
+        }
 
         let mut rem = Vec::new();
         reader.read_to_end(&mut rem)?;
         if rem.len() != 0 {
             eprintln!("WARNING: {} bytes left in XNB", rem.len());
-            dbg!(&rem);
+            // dbg!(&rem);
         }
 
         let content = XnbContent {
             readers,
-            content: primary,
+            shared_content,
+            primary_content,
         };
         Ok(content)
     }

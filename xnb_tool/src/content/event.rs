@@ -3,6 +3,7 @@ use std::io::Read;
 use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -11,7 +12,6 @@ use super::{
     element::Elements,
     light::Light,
     sound::Bank,
-    vector3::Vector3,
 };
 use crate::ext::MyReadBytesExt;
 
@@ -226,7 +226,7 @@ pub struct SpawnEvent {
     pub react_to: ReactionTriggers,
     pub reaction: Order,
     pub rotation: f32,
-    pub offset: Vector3,
+    pub offset: Vec3,
 }
 
 impl SpawnEvent {
@@ -239,7 +239,7 @@ impl SpawnEvent {
         let react_to = ReactionTriggers::read(reader)?;
         let reaction = Order::read(reader)?;
         let rotation = reader.read_f32::<LittleEndian>()?;
-        let offset = Vector3::read(reader)?;
+        let offset = reader.read_vec3()?;
         Ok(SpawnEvent {
             kind,
             idle_animation,
@@ -298,14 +298,14 @@ impl SpawnMagickEvent {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpawnMissileEvent {
     kind: String,
-    velocity: Vector3,
+    velocity: Vec3,
     facing: bool,
 }
 
 impl SpawnMissileEvent {
     pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let kind = reader.read_7bit_length_string()?;
-        let velocity = Vector3::read(reader)?;
+        let velocity = reader.read_vec3()?;
         let facing = reader.read_bool()?;
 
         Ok(SpawnMissileEvent {

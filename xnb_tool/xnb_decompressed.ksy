@@ -112,15 +112,6 @@ types:
         repeat-expr: length
   entry_render_deferred_effect:
     seq:
-      - id: texture_0
-        type: render_deferred_effect_texture
-      - id: has_texture_1
-        type: u1
-      - id: texture_1
-        type: render_deferred_effect_texture
-        if: has_texture_1 != 0
-  render_deferred_effect_texture:
-    seq:
       - id: alpha
         type: f4
       - id: sharpness
@@ -131,27 +122,36 @@ types:
         type: u1
       - id: reflection_map
         type: external_reference
-      - id: diffuse_texture_0_alpha_disabled
+      - id: texture_0
+        type: render_deferred_effect_texture
+      - id: has_texture_1
         type: u1
-      - id: alpha_mask_0_enabled
+      - id: texture_1
+        type: render_deferred_effect_texture
+        if: has_texture_1 != 0
+  render_deferred_effect_texture:
+    seq:
+      - id: diffuse_texture_alpha_disabled
         type: u1
-      - id: diffuse_color_0
+      - id: alpha_mask_enabled
+        type: u1
+      - id: diffuse_color
         type: vector3f
-      - id: spec_amount_0
+      - id: spec_amount
         type: f4
-      - id: spec_power_0
+      - id: spec_power
         type: f4
-      - id: emissive_amount_0
+      - id: emissive_amount
         type: f4
-      - id: normal_power_0
+      - id: normal_power
         type: f4
-      - id: reflectiveness_0
+      - id: reflectiveness
         type: f4
-      - id: diffuse_texture_0
+      - id: diffuse_texture
         type: external_reference
-      - id: material_texture_0
+      - id: material_texture
         type: external_reference
-      - id: normal_texture_0
+      - id: normal_texture
         type: external_reference
   bone:
     seq:

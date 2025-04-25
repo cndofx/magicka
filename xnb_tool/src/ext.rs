@@ -1,10 +1,12 @@
-use byteorder::ReadBytesExt;
+use byteorder::{LittleEndian, ReadBytesExt};
+use glam::{Mat4, Vec3};
 
 pub trait MyReadBytesExt: ReadBytesExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
     fn read_7bit_encoded_i32(&mut self) -> std::io::Result<i32>;
     fn read_7bit_length_string(&mut self) -> std::io::Result<String>;
-    // fn read_null_terminated_string(&mut self) -> std::io::Result<String>;
+    fn read_vec3(&mut self) -> std::io::Result<Vec3>;
+    fn read_mat4(&mut self) -> std::io::Result<Mat4>;
 }
 
 impl<R: ReadBytesExt> MyReadBytesExt for R {
@@ -38,15 +40,39 @@ impl<R: ReadBytesExt> MyReadBytesExt for R {
         Ok(s)
     }
 
-    // fn read_null_terminated_string(&mut self) -> std::io::Result<String> {
-    //     let mut s = String::new();
-    //     loop {
-    //         let c = self.read_u8()? as char;
-    //         if c == '\0' {
-    //             break;
-    //         }
-    //         s.push(c);
-    //     }
-    //     Ok(s)
-    // }
+    fn read_vec3(&mut self) -> std::io::Result<Vec3> {
+        let x = self.read_f32::<LittleEndian>()?;
+        let y = self.read_f32::<LittleEndian>()?;
+        let z = self.read_f32::<LittleEndian>()?;
+        Ok(Vec3::new(x, y, z))
+    }
+
+    fn read_mat4(&mut self) -> std::io::Result<Mat4> {
+        let m11 = self.read_f32::<LittleEndian>()?;
+        let m12 = self.read_f32::<LittleEndian>()?;
+        let m13 = self.read_f32::<LittleEndian>()?;
+        let m14 = self.read_f32::<LittleEndian>()?;
+
+        let m21 = self.read_f32::<LittleEndian>()?;
+        let m22 = self.read_f32::<LittleEndian>()?;
+        let m23 = self.read_f32::<LittleEndian>()?;
+        let m24 = self.read_f32::<LittleEndian>()?;
+
+        let m31 = self.read_f32::<LittleEndian>()?;
+        let m32 = self.read_f32::<LittleEndian>()?;
+        let m33 = self.read_f32::<LittleEndian>()?;
+        let m34 = self.read_f32::<LittleEndian>()?;
+
+        let m41 = self.read_f32::<LittleEndian>()?;
+        let m42 = self.read_f32::<LittleEndian>()?;
+        let m43 = self.read_f32::<LittleEndian>()?;
+        let m44 = self.read_f32::<LittleEndian>()?;
+
+        let mat = Mat4::from_cols_array(&[
+            m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34, m41, m42, m43, m44,
+        ])
+        .transpose();
+
+        Ok(mat)
+    }
 }
