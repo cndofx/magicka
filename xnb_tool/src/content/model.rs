@@ -142,7 +142,7 @@ impl Mesh {
         let num_parts = reader.read_u32::<LittleEndian>()? as usize;
         let mut parts = Vec::with_capacity(num_parts);
         for _ in 0..num_parts {
-            let part = MeshPart::read(reader, type_readers)?;
+            let part = MeshPart::read(reader)?;
             parts.push(part);
         }
 
@@ -171,7 +171,7 @@ pub struct MeshPart {
 }
 
 impl MeshPart {
-    pub fn read(reader: &mut impl Read, type_readers: &[TypeReader]) -> anyhow::Result<Self> {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
         let stream_offset = reader.read_u32::<LittleEndian>()?;
         let base_vertex = reader.read_u32::<LittleEndian>()?;
         let vertex_count = reader.read_u32::<LittleEndian>()?;
