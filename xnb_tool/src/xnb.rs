@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Context;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use flate2::{Compression, write::ZlibEncoder};
 use image::{ExtendedColorType, ImageEncoder, codecs::png::PngEncoder};
 use lzxd::Lzxd;
 use serde::{Deserialize, Serialize};
@@ -104,8 +105,7 @@ impl Xnb {
     pub fn extract(
         &self,
         file_path: impl AsRef<Path>,
-        overwrite: bool,
-        dump_raw: bool,
+        options: &ExtractOptions,
     ) -> anyhow::Result<()> {
         let directory = file_path.as_ref().parent().unwrap();
         if !directory.try_exists()? {
@@ -121,10 +121,10 @@ impl Xnb {
             self.data.clone()
         };
 
-        if dump_raw {
+        if options.dump_raw {
             let file_path = file_path.as_ref().with_extension("raw");
             let exists = file_path.try_exists()?;
-            if exists && !overwrite {
+            if exists && !options.overwrite {
                 anyhow::bail!("{} already exists", file_path.display());
             }
             let mut file = File::create(&file_path)?;
@@ -140,34 +140,56 @@ impl Xnb {
                 eprintln!("WARNING: null content");
                 return Ok(());
             }
-            Content::String(..) => "string.json",
-            Content::Item(..) => "item.json",
-            Content::Character(..) => "character.json",
-            Content::Texture2D(..) => "texture2d.json",
-            Content::Model(..) => "model.json",
-            Content::VertexDeclaration(..) => "vertexdecl.json",
-            Content::VertexBuffer(..) => "vertexbuffer.json",
-            Content::IndexBuffer(..) => "indexbuffer.json",
-            Content::RenderDeferredEffect(..) => "renderdeferredeffect.json",
+            Content::String(..) => "string",
+            Content::Item(..) => "item",
+            Content::Character(..) => "character",
+            Content::Texture2D(..) => "texture2d",
+            Content::Model(..) => "model",
+            Content::VertexDeclaration(..) => "vertexdecl",
+            Content::VertexBuffer(..) => "vertexbuffer",
+            Content::IndexBuffer(..) => "indexbuffer",
+            Content::RenderDeferredEffect(..) => "renderdeferredeffect",
+        };
+
+        let extension = if options.msgpack {
+            format!("{}.msgpack", extension)
+        } else {
+            format!("{}.json", extension)
         };
 
         let file_path = file_path.as_ref().with_extension(extension);
         let exists = file_path.try_exists()?;
-        if exists && !overwrite {
+        if exists && !options.overwrite {
             anyhow::bail!("{} already exists", file_path.display());
         }
 
         let mut file = File::create(&file_path)?;
 
-        let json = serde_json::to_string_pretty(&content).context("failed to serialize content")?;
-        file.write_all(json.as_bytes())?;
+        let serialized = if options.msgpack {
+            rmp_serde::to_vec(&content)?
+        } else {
+            serde_json::to_string_pretty(&content)
+                .context("failed to serialize content")?
+                .into_bytes()
+        };
+
+        if options.compression_level > 0 {
+            let mut encoder = ZlibEncoder::new(
+                &mut file,
+                Compression::new(options.compression_level as u32),
+            );
+            encoder.write_all(&serialized)?;
+            encoder.finish()?;
+        } else {
+            file.write_all(&serialized)?;
+        };
 
         eprintln!("saved to {}", file_path.display());
 
         if let Content::Texture2D(texture) = &content.primary_content {
             let file_path = file_path.with_extension("png");
             let exists = file_path.try_exists()?;
-            if exists && !overwrite {
+            if exists && !options.overwrite {
                 anyhow::bail!("{} already exists", file_path.display());
             }
             let mut file = File::create(&file_path).context("failed to create image file")?;
@@ -267,4 +289,11 @@ impl XnbContent {
         };
         Ok(content)
     }
+}
+
+pub struct ExtractOptions {
+    pub overwrite: bool,
+    pub dump_raw: bool,
+    pub msgpack: bool,
+    pub compression_level: u8,
 }

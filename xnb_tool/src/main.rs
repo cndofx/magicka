@@ -4,7 +4,7 @@ use anyhow::Context;
 use args::{Args, Subcommands};
 use clap::Parser;
 use walkdir::WalkDir;
-use xnb_tool::xnb::Xnb;
+use xnb_tool::xnb::{ExtractOptions, Xnb};
 
 mod args;
 
@@ -17,8 +17,16 @@ fn main() -> anyhow::Result<()> {
             output,
             overwrite,
             dump_raw,
+            msgpack,
+            compression_level,
         } => {
-            extract(&input, &output, overwrite, dump_raw)
+            let options = ExtractOptions {
+                overwrite,
+                dump_raw,
+                msgpack,
+                compression_level,
+            };
+            extract(&input, &output, &options)
                 .with_context(|| format!("failed to extract {input}"))?;
         }
     }
@@ -29,8 +37,7 @@ fn main() -> anyhow::Result<()> {
 fn extract(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
-    overwrite: bool,
-    dump_raw: bool,
+    options: &ExtractOptions,
 ) -> anyhow::Result<()> {
     let input_path = input_path.as_ref();
     let output_path = output_path.as_ref();
@@ -43,11 +50,10 @@ fn extract(
         extract_file(
             input_path,
             output_path.join(input_path.file_name().unwrap()),
-            overwrite,
-            dump_raw,
+            options,
         )?;
     } else if input_path.is_dir() {
-        extract_directory(input_path, output_path, overwrite, dump_raw)?;
+        extract_directory(input_path, output_path, options)?;
     } else {
         todo!();
     }
@@ -58,8 +64,7 @@ fn extract(
 fn extract_directory(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
-    overwrite: bool,
-    dump_raw: bool,
+    options: &ExtractOptions,
 ) -> anyhow::Result<()> {
     let input_path = input_path.as_ref();
     let output_path = output_path.as_ref();
@@ -88,12 +93,7 @@ fn extract_directory(
         let relative_path = entry.path().strip_prefix(input_path)?;
         eprintln!("\nextracting entry: {}", relative_path.display());
 
-        if let Err(e) = extract_file(
-            entry.path(),
-            output_path.join(relative_path),
-            overwrite,
-            dump_raw,
-        ) {
+        if let Err(e) = extract_file(entry.path(), output_path.join(relative_path), options) {
             failures.push(relative_path.display().to_string());
             eprintln!("failed to extract entry: {e}");
             for (i, cause) in e.chain().enumerate() {
@@ -118,13 +118,12 @@ fn extract_directory(
 fn extract_file(
     input_file_path: impl AsRef<Path>,
     output_file_path: impl AsRef<Path>,
-    overwrite: bool,
-    dump_raw: bool,
+    options: &ExtractOptions,
 ) -> anyhow::Result<()> {
     let file = File::open(input_file_path).context("failed to open file")?;
     let mut reader = BufReader::new(file);
     let xnb = Xnb::parse(&mut reader).context("failed to parse xnb header")?;
-    xnb.extract(output_file_path, overwrite, dump_raw)
+    xnb.extract(output_file_path, options)
         .context("failed to extract xnb")?;
     Ok(())
 }
