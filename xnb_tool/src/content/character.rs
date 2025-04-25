@@ -1,21 +1,22 @@
 use std::io::Read;
 
+use anyhow::anyhow;
 use byteorder::{LittleEndian, ReadBytesExt};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    content::{
-        ability::Ability, attachment::Attachment, aura::Buff, blood_kind::BloodKind,
-        boned_effect::BonedEffect, boned_light::BonedLight, character_model::CharacterModel,
-        faction::Factions, gib::Gib, movement::Movement,
-    },
-    ext::MyReadBytesExt,
-};
+use crate::ext::MyReadBytesExt;
 
 use super::{
+    ability::Ability,
     animation::AnimationSet,
-    aura::Aura,
+    aura::{Aura, Buff},
+    effect::BonedEffect,
     event::EventConditions,
+    faction::Factions,
+    gib::Gib,
+    light::BonedLight,
+    movement::Movement,
     resistance::Resistance,
     sound::{Bank, Sound},
 };
@@ -308,5 +309,68 @@ impl Character {
             buffs,
             auras,
         })
+    }
+}
+
+use super::color::Color;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CharacterModel {
+    model: String,
+    scale: f32,
+    tint: Color,
+}
+
+impl CharacterModel {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let model = reader.read_7bit_length_string()?;
+        let scale = reader.read_f32::<LittleEndian>()?;
+        let tint = Color::read(reader)?;
+        Ok(CharacterModel { model, scale, tint })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Attachment {
+    slot: i32,
+    bone: String,
+    rotation: Vec3,
+    item: String,
+}
+
+impl Attachment {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let slot = reader.read_i32::<LittleEndian>()?;
+        let bone = reader.read_7bit_length_string()?;
+        let rotation = reader.read_vec3()?;
+        let item = reader.read_7bit_length_string()?;
+
+        let attachment = Attachment {
+            slot,
+            bone,
+            rotation,
+            item,
+        };
+        Ok(attachment)
+    }
+}
+
+#[repr(u8)]
+#[derive(strum::FromRepr, Serialize, Deserialize, Clone, Copy, Debug)]
+pub enum BloodKind {
+    Regular,
+    Green,
+    Black,
+    Wood,
+    Insect,
+    None,
+}
+
+impl BloodKind {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let value = reader.read_i32::<LittleEndian>()? as u32;
+        let kind = BloodKind::from_repr(value as u8)
+            .ok_or_else(|| anyhow!("unknown blood kind: {value}"))?;
+        Ok(kind)
     }
 }
