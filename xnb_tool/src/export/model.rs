@@ -15,7 +15,9 @@ use gltf::{
     },
 };
 
-use crate::content::model::{ElementFormat, ElementUsage, Model, VertexDeclaration, VertexElement};
+use crate::content::model::{
+    ElementFormat, ElementUsage, IndexBuffer, Model, VertexDeclaration, VertexElement,
+};
 
 impl Model {
     pub fn to_glb(&self) -> anyhow::Result<Vec<u8>> {
@@ -24,9 +26,11 @@ impl Model {
         let json_string = serde_json::to_string(&root)?;
         let json_offset = align_to_multiple_of_four(json_string.len());
 
+        let reversed_indices = reverse_winding(&self.meshes[0].index_buffer);
+
         let mut bin = Vec::new();
         bin.extend_from_slice(&self.meshes[0].vertex_buffer.data);
-        bin.extend_from_slice(&self.meshes[0].index_buffer.data);
+        bin.extend_from_slice(&reversed_indices.data);
         while bin.len() % 4 != 0 {
             bin.push(0);
         }
@@ -283,4 +287,43 @@ fn calculate_bounds(vertices: &[u8], decl: &VertexDeclaration) -> (Vec3, Vec3) {
         max.z = max.z.max(z);
     }
     (min, max)
+}
+
+fn reverse_winding(indices: &IndexBuffer) -> IndexBuffer {
+    let mut data = Vec::with_capacity(indices.data.len());
+
+    if indices.is_16_bit {
+        assert!(indices.data.len() % 2 == 0);
+        let indices_u16: Vec<u16> = indices
+            .data
+            .chunks_exact(2)
+            .map(|i| u16::from_le_bytes([i[0], i[1]]))
+            .collect();
+
+        assert!(indices_u16.len() % 3 == 0);
+        for triangle in indices_u16.chunks_exact(3) {
+            data.extend_from_slice(&triangle[0].to_le_bytes());
+            data.extend_from_slice(&triangle[2].to_le_bytes());
+            data.extend_from_slice(&triangle[1].to_le_bytes());
+        }
+    } else {
+        assert!(indices.data.len() % 4 == 0);
+        let indices_u32: Vec<u32> = indices
+            .data
+            .chunks_exact(4)
+            .map(|i| u32::from_le_bytes([i[0], i[1], i[2], i[3]]))
+            .collect();
+
+        assert!(indices_u32.len() % 3 == 0);
+        for triangle in indices_u32.chunks_exact(3) {
+            data.extend_from_slice(&triangle[0].to_le_bytes());
+            data.extend_from_slice(&triangle[2].to_le_bytes());
+            data.extend_from_slice(&triangle[1].to_le_bytes());
+        }
+    }
+
+    IndexBuffer {
+        is_16_bit: indices.is_16_bit,
+        data,
+    }
 }
