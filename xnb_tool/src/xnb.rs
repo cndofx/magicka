@@ -7,7 +7,6 @@ use std::{
 use anyhow::Context;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use flate2::{Compression, write::ZlibEncoder};
-use image::{ExtendedColorType, ImageEncoder, codecs::png::PngEncoder};
 use lzxd::Lzxd;
 use serde::{Deserialize, Serialize};
 
@@ -148,6 +147,8 @@ impl Xnb {
             Content::VertexDeclaration(..) => "vertexdecl",
             Content::VertexBuffer(..) => "vertexbuffer",
             Content::IndexBuffer(..) => "indexbuffer",
+            Content::Effect(..) => "effect",
+            Content::AdditiveEffect(..) => "additiveeffect",
             Content::RenderDeferredEffect(..) => "renderdeferredeffect",
         };
 
@@ -194,14 +195,8 @@ impl Xnb {
             }
             let mut file = File::create(&file_path).context("failed to create image file")?;
 
-            let pixels = texture.decompress()?;
-            let encoder = PngEncoder::new(&mut file);
-            encoder.write_image(
-                &pixels,
-                texture.width,
-                texture.height,
-                ExtendedColorType::Rgba8,
-            )?;
+            let png = texture.to_png().context("failed to encode png")?;
+            file.write_all(&png)?;
 
             eprintln!("saved to {}", file_path.display());
         }

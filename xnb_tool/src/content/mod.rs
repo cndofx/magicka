@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use character::Character;
-use effect::RenderDeferredEffect;
+use effect::{AdditiveEffect, Effect, RenderDeferredEffect};
 use item::Item;
 use model::{IndexBuffer, Model, VertexBuffer, VertexDeclaration};
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,9 @@ const MODEL_READER_NAME: &str = "Microsoft.Xna.Framework.Content.ModelReader";
 const VERTEX_DECL_READER_NAME: &str = "Microsoft.Xna.Framework.Content.VertexDeclarationReader";
 const VERTEX_BUFFER_READER_NAME: &str = "Microsoft.Xna.Framework.Content.VertexBufferReader";
 const INDEX_BUFFER_READER_NAME: &str = "Microsoft.Xna.Framework.Content.IndexBufferReader";
+const EFFECT_READER_NAME: &str = "Microsoft.Xna.Framework.Content.EffectReader";
 
+const ADDITIVE_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.AdditiveEffectReader";
 const RENDER_DEFERRED_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.RenderDeferredEffectReader";
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,6 +59,8 @@ pub enum Content {
     VertexDeclaration(VertexDeclaration),
     VertexBuffer(VertexBuffer),
     IndexBuffer(IndexBuffer),
+    Effect(Effect),
+    AdditiveEffect(AdditiveEffect),
     RenderDeferredEffect(RenderDeferredEffect),
 }
 
@@ -82,6 +86,10 @@ impl Content {
                 let character = Character::read(reader)?;
                 return Ok(Content::Character(character));
             }
+            ADDITIVE_EFFECT_READER_NAME => {
+                let effect = AdditiveEffect::read(reader)?;
+                return Ok(Content::AdditiveEffect(effect));
+            }
             RENDER_DEFERRED_EFFECT_READER_NAME => {
                 let effect = RenderDeferredEffect::read(reader)?;
                 return Ok(Content::RenderDeferredEffect(effect));
@@ -105,6 +113,10 @@ impl Content {
             INDEX_BUFFER_READER_NAME => {
                 let buffer = IndexBuffer::read(reader)?;
                 return Ok(Content::IndexBuffer(buffer));
+            }
+            EFFECT_READER_NAME => {
+                let effect = Effect::read(reader)?;
+                return Ok(Content::Effect(effect));
             }
             _ => {
                 anyhow::bail!("unknown type reader: {}", type_reader.name);

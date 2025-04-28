@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{io::Read, vec};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,43 @@ use serde::{Deserialize, Serialize};
 use crate::ext::MyReadBytesExt;
 
 use super::color::Color;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Effect {
+    pub bytecode: Vec<u8>,
+}
+
+impl Effect {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let length = reader.read_u32::<LittleEndian>()?;
+        let mut bytecode = vec![0; length as usize];
+        reader.read_exact(&mut bytecode)?;
+        Ok(Effect { bytecode })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AdditiveEffect {
+    pub color_tint: Color,
+    pub vertex_color_enabled: bool,
+    pub texture_enabled: bool,
+    pub texture: String,
+}
+
+impl AdditiveEffect {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let color_tint = Color::read(reader)?;
+        let vertex_color_enabled = reader.read_bool()?;
+        let texture_enabled = reader.read_bool()?;
+        let texture = reader.read_7bit_length_string()?;
+        Ok(AdditiveEffect {
+            color_tint,
+            vertex_color_enabled,
+            texture_enabled,
+            texture,
+        })
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RenderDeferredEffect {
