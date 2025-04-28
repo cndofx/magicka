@@ -187,18 +187,34 @@ impl Xnb {
 
         eprintln!("saved to {}", file_path.display());
 
-        if let Content::Texture2D(texture) = &content.primary_content {
-            let file_path = file_path.with_extension("png");
-            let exists = file_path.try_exists()?;
-            if exists && !options.overwrite {
-                anyhow::bail!("{} already exists", file_path.display());
+        match &content.primary_content {
+            Content::Texture2D(texture) => {
+                let file_path = file_path.with_extension("png");
+                let exists = file_path.try_exists()?;
+                if exists && !options.overwrite {
+                    anyhow::bail!("{} already exists", file_path.display());
+                }
+                let mut file = File::create(&file_path).context("failed to create png file")?;
+
+                let png = texture.to_png().context("failed to encode png")?;
+                file.write_all(&png)?;
+
+                eprintln!("saved to {}", file_path.display());
             }
-            let mut file = File::create(&file_path).context("failed to create image file")?;
+            Content::Model(model) => {
+                let file_path = file_path.with_extension("glb");
+                let exists = file_path.try_exists()?;
+                if exists && !options.overwrite {
+                    anyhow::bail!("{} already exists", file_path.display());
+                }
+                let mut file = File::create(&file_path).context("failed to create glb file")?;
 
-            let png = texture.to_png().context("failed to encode png")?;
-            file.write_all(&png)?;
+                let glb = model.to_glb().context("failed to build glb")?;
+                file.write_all(&glb)?;
 
-            eprintln!("saved to {}", file_path.display());
+                eprintln!("saved to {}", file_path.display());
+            }
+            _ => {}
         }
 
         Ok(())

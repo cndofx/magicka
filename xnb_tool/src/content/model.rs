@@ -108,13 +108,13 @@ fn read_bone_ref(reader: &mut impl Read, num_bones: u32) -> std::io::Result<u32>
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Mesh {
-    name: String,
-    parent_bone_ref: u32,
-    bounds: BoundingSphere,
-    vertex_buffer: VertexBuffer,
-    index_buffer: IndexBuffer,
-    parts: Vec<MeshPart>,
-    tag: u8,
+    pub name: String,
+    pub parent_bone_ref: u32,
+    pub bounds: BoundingSphere,
+    pub vertex_buffer: VertexBuffer,
+    pub index_buffer: IndexBuffer,
+    pub parts: Vec<MeshPart>,
+    pub tag: u8,
 }
 
 impl Mesh {
@@ -222,6 +222,15 @@ impl VertexDeclaration {
         }
         Ok(VertexDeclaration { elements })
     }
+
+    pub fn stride(&self) -> usize {
+        let mut end = 0;
+        for el in &self.elements {
+            let size = el.format.size();
+            end = usize::max(end, el.offset as usize + size);
+        }
+        end
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -254,7 +263,7 @@ impl VertexElement {
 }
 
 #[repr(u8)]
-#[derive(strum::FromRepr, Serialize, Deserialize, Debug)]
+#[derive(strum::FromRepr, Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ElementFormat {
     Single,
     Vector2,
@@ -282,6 +291,16 @@ impl ElementFormat {
             .ok_or_else(|| anyhow!("unknown element format: {value}"))?;
         Ok(format)
     }
+
+    pub fn size(&self) -> usize {
+        match self {
+            ElementFormat::Single => 4,
+            ElementFormat::Vector2 => 8,
+            ElementFormat::Vector3 => 12,
+            ElementFormat::Vector4 => 16,
+            other => unimplemented!("element format size: {other:?}"),
+        }
+    }
 }
 
 #[repr(u8)]
@@ -303,7 +322,7 @@ impl ElementMethod {
 }
 
 #[repr(u8)]
-#[derive(strum::FromRepr, Serialize, Deserialize, Debug)]
+#[derive(strum::FromRepr, Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ElementUsage {
     Position,
     BlendWeight,
