@@ -298,6 +298,7 @@ impl ElementFormat {
             ElementFormat::Vector2 => 8,
             ElementFormat::Vector3 => 12,
             ElementFormat::Vector4 => 16,
+            ElementFormat::Color => 4,
             other => unimplemented!("element format size: {other:?}"),
         }
     }

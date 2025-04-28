@@ -87,6 +87,11 @@ impl VertexElement {
             _ => (None, None),
         };
 
+        let normalized = match self.format {
+            ElementFormat::Color => true,
+            _ => false,
+        };
+
         Accessor {
             buffer_view: Some(view),
             byte_offset: Some(USize64(self.offset as u64)),
@@ -98,7 +103,7 @@ impl VertexElement {
             min,
             max,
             name: None,
-            normalized: false,
+            normalized,
             sparse: None,
         }
     }
@@ -111,6 +116,7 @@ impl From<ElementFormat> for ComponentType {
             ElementFormat::Vector2 => ComponentType::F32,
             ElementFormat::Vector3 => ComponentType::F32,
             ElementFormat::Vector4 => ComponentType::F32,
+            ElementFormat::Color => ComponentType::U8,
             v => unimplemented!("component type for element format: {v:?}"),
         }
     }
@@ -123,6 +129,7 @@ impl From<ElementFormat> for Type {
             ElementFormat::Vector2 => Type::Vec2,
             ElementFormat::Vector3 => Type::Vec3,
             ElementFormat::Vector4 => Type::Vec4,
+            ElementFormat::Color => Type::Vec4,
             v => unimplemented!("type for element format: {v:?}"),
         }
     }
@@ -145,6 +152,10 @@ fn build_root(model: &Model) -> (Root, usize) {
 
     let mesh = &model.meshes[0];
     let part = &mesh.parts[0];
+
+    // temporary to find exceptions
+    assert!(model.meshes.len() == 1);
+    assert!(mesh.parts.len() == 1);
 
     let vertex_decl_index = part.vertex_decl_index;
     let vertex_decl = &model.vertex_decls[vertex_decl_index as usize];
