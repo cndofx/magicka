@@ -7,30 +7,39 @@ use gltf::{
     binary::Header,
     buffer::Target,
     json::{
-        self, Accessor, Buffer, Index, Node, Root, Scene,
+        self, Accessor, Buffer, Image, Index, Material, Node, Root, Scene, Texture,
         accessor::{ComponentType, GenericComponentType, Type},
         buffer::{Stride, View},
+        material::{PbrBaseColorFactor, PbrMetallicRoughness, StrengthFactor},
         mesh::Primitive,
+        texture,
         validation::{Checked, USize64},
     },
 };
 
-use crate::content::model::{
-    ElementFormat, ElementUsage, IndexBuffer, Mesh, MeshPart, Model, VertexDeclaration,
-    VertexElement,
+use crate::content::{
+    Content,
+    model::{
+        ElementFormat, ElementUsage, IndexBuffer, Mesh, MeshPart, Model, VertexDeclaration,
+        VertexElement,
+    },
 };
 
 impl Model {
-    pub fn to_glb(&self) -> anyhow::Result<Vec<u8>> {
+    pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
         let mut root = Root::default();
 
         let buffer = build_buffer(&mut root, self);
+
+        let materials = build_materials(&mut root, shared_content);
 
         let mesh_nodes: Vec<Index<Node>> = self
             .meshes
             .iter()
             .enumerate()
-            .map(|(mesh_idx, mesh)| build_mesh(&mut root, &buffer, self, mesh, mesh_idx))
+            .map(|(mesh_idx, mesh)| {
+                build_mesh(&mut root, &buffer, self, mesh, mesh_idx, &materials)
+            })
             .collect();
 
         let scene = root.push(Scene {
@@ -198,17 +207,121 @@ fn build_buffer(root: &mut Root, model: &Model) -> FullBuffer {
     }
 }
 
+fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<Index<Material>>> {
+    let materials: Vec<Option<Index<Material>>> = shared_content
+        .iter()
+        .map(|content| match content {
+            Content::RenderDeferredEffect(effect) => {
+                let color = effect.material_0.diffuse_color;
+                let color = PbrBaseColorFactor([color.r, color.g, color.b, 1.0]);
+                let base_texture_path =
+                    format!("{}.texture2d.png", &effect.material_0.diffuse_texture);
+
+                let base_image = root.push(Image {
+                    uri: Some(base_texture_path),
+                    buffer_view: None,
+                    mime_type: None,
+                    name: None,
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                });
+
+                let base_texture = root.push(Texture {
+                    source: base_image,
+                    sampler: None,
+                    name: None,
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                });
+
+                let material = root.push(Material {
+                    pbr_metallic_roughness: PbrMetallicRoughness {
+                        base_color_factor: color,
+                        base_color_texture: Some(texture::Info {
+                            index: base_texture,
+                            tex_coord: 0,
+                            extensions: Default::default(),
+                            extras: Default::default(),
+                        }),
+                        metallic_factor: StrengthFactor(0.0),
+                        roughness_factor: StrengthFactor(1.0),
+                        metallic_roughness_texture: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    },
+                    ..Default::default()
+                });
+
+                Some(material)
+            }
+            Content::AdditiveEffect(effect) => {
+                let color = effect.color_tint;
+                let color = PbrBaseColorFactor([color.r, color.g, color.b, 1.0]);
+
+                let texture = if effect.texture_enabled {
+                    let texture_path = format!("{}.texture2d.png", &effect.texture);
+
+                    let image = root.push(Image {
+                        uri: Some(texture_path),
+                        buffer_view: None,
+                        mime_type: None,
+                        name: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    });
+
+                    let texture = root.push(Texture {
+                        source: image,
+                        sampler: None,
+                        name: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    });
+
+                    Some(texture::Info {
+                        index: texture,
+                        tex_coord: 0,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    })
+                } else {
+                    None
+                };
+
+                let material = root.push(Material {
+                    pbr_metallic_roughness: PbrMetallicRoughness {
+                        base_color_factor: color,
+                        base_color_texture: texture,
+                        metallic_factor: StrengthFactor(0.0),
+                        roughness_factor: StrengthFactor(1.0),
+                        metallic_roughness_texture: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    },
+                    ..Default::default()
+                });
+
+                Some(material)
+            }
+            _ => None,
+        })
+        .collect();
+
+    materials
+}
+
 fn build_mesh(
     root: &mut Root,
     buffer: &FullBuffer,
     model: &Model,
     mesh: &Mesh,
     mesh_idx: usize,
+    materials: &[Option<Index<Material>>],
 ) -> Index<Node> {
     let part_nodes: Vec<Index<Node>> = mesh
         .parts
         .iter()
-        .map(|part| build_mesh_part(root, buffer, model, mesh, mesh_idx, part))
+        .map(|part| build_mesh_part(root, buffer, model, mesh, mesh_idx, part, materials))
         .collect();
 
     let node = root.push(Node {
@@ -227,6 +340,7 @@ fn build_mesh_part(
     mesh: &Mesh,
     mesh_idx: usize,
     part: &MeshPart,
+    materials: &[Option<Index<Material>>],
 ) -> Index<Node> {
     // vertices
     let vertex_decl = &model.vertex_decls[part.vertex_decl_index as usize];
@@ -294,6 +408,12 @@ fn build_mesh_part(
     });
 
     // everything else
+    let material = if part.shared_content_material_idx > 0 {
+        Some(materials[part.shared_content_material_idx as usize - 1].unwrap())
+    } else {
+        None
+    };
+
     let primitive = Primitive {
         attributes: {
             let mut map = BTreeMap::new();
@@ -303,7 +423,7 @@ fn build_mesh_part(
             map
         },
         indices: Some(index_accessor),
-        material: None,
+        material,
         targets: None,
         mode: Checked::Valid(gltf::mesh::Mode::Triangles),
         extensions: Default::default(),

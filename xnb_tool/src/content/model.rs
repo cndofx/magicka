@@ -167,7 +167,7 @@ pub struct MeshPart {
     pub primitive_count: u32,
     pub vertex_decl_index: u32,
     pub tag: u8,
-    pub shared_content_id: i32,
+    pub shared_content_material_idx: i32,
 }
 
 impl MeshPart {
@@ -179,7 +179,7 @@ impl MeshPart {
         let primitive_count = reader.read_u32::<LittleEndian>()?;
         let vertex_decl_index = reader.read_u32::<LittleEndian>()?;
         let tag = reader.read_u8()?;
-        let shared_content_id = reader.read_7bit_encoded_i32()?;
+        let shared_content_material_idx = reader.read_7bit_encoded_i32()?;
         Ok(MeshPart {
             stream_offset,
             base_vertex,
@@ -188,7 +188,7 @@ impl MeshPart {
             primitive_count,
             vertex_decl_index,
             tag,
-            shared_content_id,
+            shared_content_material_idx,
         })
     }
 }

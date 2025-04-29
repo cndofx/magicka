@@ -209,7 +209,9 @@ impl Xnb {
                 }
                 let mut file = File::create(&file_path).context("failed to create glb file")?;
 
-                let glb = model.to_glb().context("failed to build glb")?;
+                let glb = model
+                    .to_glb(&content.shared_content)
+                    .context("failed to build glb")?;
                 file.write_all(&glb)?;
 
                 eprintln!("saved to {}", file_path.display());
