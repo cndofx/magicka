@@ -7,7 +7,7 @@ use gltf::{
     binary::Header,
     buffer::Target,
     json::{
-        Accessor, Buffer, Index, Mesh, Node, Root, Scene,
+        self, Accessor, Buffer, Index, Node, Root, Scene,
         accessor::{ComponentType, GenericComponentType, Type},
         buffer::{Stride, View},
         mesh::Primitive,
@@ -16,21 +16,35 @@ use gltf::{
 };
 
 use crate::content::model::{
-    ElementFormat, ElementUsage, IndexBuffer, Model, VertexDeclaration, VertexElement,
+    ElementFormat, ElementUsage, IndexBuffer, Mesh, MeshPart, Model, VertexDeclaration,
+    VertexElement,
 };
 
 impl Model {
     pub fn to_glb(&self) -> anyhow::Result<Vec<u8>> {
-        let (root, length) = build_root(self);
+        let mut root = Root::default();
+
+        let buffer = build_buffer(&mut root, self);
+
+        let mesh_nodes: Vec<Index<Node>> = self
+            .meshes
+            .iter()
+            .enumerate()
+            .map(|(mesh_idx, mesh)| build_mesh(&mut root, &buffer, self, mesh, mesh_idx))
+            .collect();
+
+        let scene = root.push(Scene {
+            nodes: mesh_nodes,
+            name: None,
+            extensions: Default::default(),
+            extras: Default::default(),
+        });
+        root.scene = Some(scene);
 
         let json_string = serde_json::to_string(&root)?;
-        let json_offset = align_to_multiple_of_four(json_string.len());
+        let json_padded_len = pad_to_multiple_of_four(json_string.len());
 
-        let reversed_indices = reverse_winding(&self.meshes[0].index_buffer);
-
-        let mut bin = Vec::new();
-        bin.extend_from_slice(&self.meshes[0].vertex_buffer.data);
-        bin.extend_from_slice(&reversed_indices.data);
+        let mut bin = buffer.data.clone();
         while bin.len() % 4 != 0 {
             bin.push(0);
         }
@@ -39,7 +53,7 @@ impl Model {
             header: Header {
                 magic: *b"glTF",
                 version: 2,
-                length: (json_offset + length)
+                length: (json_padded_len + bin.len())
                     .try_into()
                     .context("file size exceeds binary glTF size limit")?,
             },
@@ -147,55 +161,102 @@ impl From<ElementUsage> for Semantic {
     }
 }
 
-fn build_root(model: &Model) -> (Root, usize) {
-    let mut root = Root::default();
+struct FullBuffer {
+    index: Index<Buffer>,
+    data: Vec<u8>,
+    vertex_offsets: Vec<usize>,
+    index_offsets: Vec<usize>,
+}
 
-    let mesh = &model.meshes[0];
-    let part = &mesh.parts[0];
+fn build_buffer(root: &mut Root, model: &Model) -> FullBuffer {
+    let mut vertex_offsets = Vec::new();
+    let mut index_offsets = Vec::new();
+    let mut buffer_data = Vec::new();
 
-    // temporary to find exceptions
-    assert!(model.meshes.len() == 1);
-    assert!(mesh.parts.len() == 1);
+    for mesh in &model.meshes {
+        vertex_offsets.push(buffer_data.len());
+        buffer_data.extend_from_slice(&mesh.vertex_buffer.data);
 
-    let vertex_decl_index = part.vertex_decl_index;
-    let vertex_decl = &model.vertex_decls[vertex_decl_index as usize];
-    let stride = vertex_decl.stride();
+        index_offsets.push(buffer_data.len());
+        let reversed_indices = reverse_winding(&mesh.index_buffer);
+        buffer_data.extend_from_slice(&reversed_indices.data);
+    }
 
-    let vertex_buffer_length = part.vertex_count as usize * stride;
-    let vertex_buffer_offset = part.base_vertex as usize * stride;
-    dbg!(stride, vertex_buffer_length);
-
-    let full_buffer_length = mesh.vertex_buffer.data.len() + mesh.index_buffer.data.len();
-    let buffer = root.push(Buffer {
-        byte_length: USize64(vertex_buffer_length as u64),
-        extensions: Default::default(),
-        extras: Default::default(),
+    let buffer_index = root.push(Buffer {
+        byte_length: USize64(buffer_data.len() as u64),
         name: None,
         uri: None,
-    });
-
-    let vertex_view = root.push(View {
-        buffer,
-        byte_length: USize64(vertex_buffer_length as u64),
-        byte_offset: Some(USize64(vertex_buffer_offset as u64)),
-        byte_stride: Some(Stride(stride)),
         extensions: Default::default(),
         extras: Default::default(),
-        name: None,
+    });
+
+    FullBuffer {
+        index: buffer_index,
+        data: buffer_data,
+        vertex_offsets,
+        index_offsets,
+    }
+}
+
+fn build_mesh(
+    root: &mut Root,
+    buffer: &FullBuffer,
+    model: &Model,
+    mesh: &Mesh,
+    mesh_idx: usize,
+) -> Index<Node> {
+    let part_nodes: Vec<Index<Node>> = mesh
+        .parts
+        .iter()
+        .map(|part| build_mesh_part(root, buffer, model, mesh, mesh_idx, part))
+        .collect();
+
+    let node = root.push(Node {
+        children: Some(part_nodes),
+        name: Some(mesh.name.clone()),
+        ..Default::default()
+    });
+
+    node
+}
+
+fn build_mesh_part(
+    root: &mut Root,
+    buffer: &FullBuffer,
+    model: &Model,
+    mesh: &Mesh,
+    mesh_idx: usize,
+    part: &MeshPart,
+) -> Index<Node> {
+    // vertices
+    let vertex_decl = &model.vertex_decls[part.vertex_decl_index as usize];
+    let vertex_stride = vertex_decl.stride();
+    let vertex_buffer_length = part.vertex_count as usize * vertex_stride;
+    let vertex_buffer_local_offset = part.base_vertex as usize * vertex_stride;
+    let vertex_buffer_full_offset = vertex_buffer_local_offset + buffer.vertex_offsets[mesh_idx];
+
+    let vertex_view = root.push(View {
+        buffer: buffer.index,
+        byte_length: USize64(vertex_buffer_length as u64),
+        byte_offset: Some(USize64(vertex_buffer_full_offset as u64)),
+        byte_stride: Some(Stride(vertex_stride)),
         target: Some(Checked::Valid(Target::ArrayBuffer)),
+        name: None,
+        extensions: Default::default(),
+        extras: Default::default(),
     });
 
     let (pos_min, pos_max) = calculate_bounds(
-        &mesh.vertex_buffer.data[vertex_buffer_offset..vertex_buffer_offset + vertex_buffer_length],
+        &mesh.vertex_buffer.data
+            [vertex_buffer_local_offset..vertex_buffer_local_offset + vertex_buffer_length],
         &vertex_decl,
     );
     let vertex_accessors =
         vertex_decl.accessors(vertex_view, part.vertex_count as u64, pos_min, pos_max);
-    dbg!(&vertex_accessors);
-
     let vertex_accessors: Vec<Index<Accessor>> =
         vertex_accessors.into_iter().map(|a| root.push(a)).collect();
 
+    // indices
     let index_type = if mesh.index_buffer.is_16_bit {
         ComponentType::U16
     } else {
@@ -203,18 +264,20 @@ fn build_root(model: &Model) -> (Root, usize) {
     };
     let index_count = part.primitive_count * 3; // assuming primitives are always triangles
     let index_buffer_length = index_count as usize * index_type.size();
-    let index_buffer_offset =
-        mesh.vertex_buffer.data.len() + part.start_index as usize * index_type.size();
+    let index_buffer_local_offset = part.start_index as usize * index_type.size();
+    let index_buffer_full_offset = index_buffer_local_offset + buffer.index_offsets[mesh_idx];
+
     let index_view = root.push(View {
-        buffer,
+        buffer: buffer.index,
         byte_length: USize64(index_buffer_length as u64),
-        byte_offset: Some(USize64(index_buffer_offset as u64)),
+        byte_offset: Some(USize64(index_buffer_full_offset as u64)),
         byte_stride: None,
-        name: None,
         target: Some(Checked::Valid(Target::ElementArrayBuffer)),
+        name: None,
         extensions: Default::default(),
         extras: Default::default(),
     });
+
     let index_accessor = root.push(Accessor {
         buffer_view: Some(index_view),
         byte_offset: Some(USize64(0)),
@@ -230,6 +293,7 @@ fn build_root(model: &Model) -> (Root, usize) {
         sparse: None,
     });
 
+    // everything else
     let primitive = Primitive {
         attributes: {
             let mut map = BTreeMap::new();
@@ -238,20 +302,20 @@ fn build_root(model: &Model) -> (Root, usize) {
             }
             map
         },
-        extensions: Default::default(),
-        extras: Default::default(),
         indices: Some(index_accessor),
         material: None,
-        mode: Checked::Valid(gltf::mesh::Mode::Triangles),
         targets: None,
-    };
-
-    let mesh = root.push(Mesh {
+        mode: Checked::Valid(gltf::mesh::Mode::Triangles),
         extensions: Default::default(),
         extras: Default::default(),
-        name: None,
+    };
+
+    let mesh = root.push(json::Mesh {
         primitives: vec![primitive],
         weights: None,
+        name: None,
+        extensions: Default::default(),
+        extras: Default::default(),
     });
 
     let node = root.push(Node {
@@ -259,19 +323,10 @@ fn build_root(model: &Model) -> (Root, usize) {
         ..Default::default()
     });
 
-    root.push(Scene {
-        extensions: Default::default(),
-        extras: Default::default(),
-        name: None,
-        nodes: vec![node],
-    });
-
-    // let full_length = vertex_buffer_length + index_buffer_length;
-
-    (root, full_buffer_length)
+    node
 }
 
-fn align_to_multiple_of_four(n: usize) -> usize {
+fn pad_to_multiple_of_four(n: usize) -> usize {
     (n + 3) & !3
 }
 
