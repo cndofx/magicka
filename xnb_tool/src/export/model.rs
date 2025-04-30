@@ -7,12 +7,10 @@ use gltf::{
     binary::Header,
     buffer::Target,
     json::{
-        self, Accessor, Buffer, Image, Index, Material, Node, Root, Scene, Texture,
+        self, Accessor, Buffer, Index, Material, Node, Root, Scene,
         accessor::{ComponentType, GenericComponentType, Type},
         buffer::{Stride, View},
-        material::{PbrBaseColorFactor, PbrMetallicRoughness, StrengthFactor},
         mesh::Primitive,
-        texture,
         validation::{Checked, USize64},
     },
 };
@@ -223,101 +221,6 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
                 Some(material)
             }
             _ => None,
-            // Content::RenderDeferredEffect(effect) => {
-            //     let color = effect.material_0.diffuse_color;
-            //     let color = PbrBaseColorFactor([color.r, color.g, color.b, 1.0]);
-            //     let base_texture_path =
-            //         format!("{}.texture2d.png", &effect.material_0.diffuse_texture);
-
-            //     let base_image = root.push(Image {
-            //         uri: Some(base_texture_path),
-            //         buffer_view: None,
-            //         mime_type: None,
-            //         name: None,
-            //         extensions: Default::default(),
-            //         extras: Default::default(),
-            //     });
-
-            //     let base_texture = root.push(Texture {
-            //         source: base_image,
-            //         sampler: None,
-            //         name: None,
-            //         extensions: Default::default(),
-            //         extras: Default::default(),
-            //     });
-
-            //     let effect_json = serde_json::to_string(effect).unwrap();
-
-            //     let material = root.push(Material {
-            //         pbr_metallic_roughness: PbrMetallicRoughness {
-            //             base_color_factor: color,
-            //             base_color_texture: Some(texture::Info {
-            //                 index: base_texture,
-            //                 tex_coord: 0,
-            //                 extensions: Default::default(),
-            //                 extras: Default::default(),
-            //             }),
-            //             metallic_factor: StrengthFactor(0.0),
-            //             roughness_factor: StrengthFactor(1.0),
-            //             metallic_roughness_texture: None,
-            //             extensions: Default::default(),
-            //             extras: Default::default(),
-            //         },
-            //         extras: Some(RawValue::from_string(effect_json).unwrap()),
-            //         ..Default::default()
-            //     });
-
-            //     Some(material)
-            // }
-            // Content::AdditiveEffect(effect) => {
-            //     let color = effect.color_tint;
-            //     let color = PbrBaseColorFactor([color.r, color.g, color.b, 1.0]);
-
-            //     let texture = if effect.texture_enabled {
-            //         let texture_path = format!("{}.texture2d.png", &effect.texture);
-
-            //         let image = root.push(Image {
-            //             uri: Some(texture_path),
-            //             buffer_view: None,
-            //             mime_type: None,
-            //             name: None,
-            //             extensions: Default::default(),
-            //             extras: Default::default(),
-            //         });
-
-            //         let texture = root.push(Texture {
-            //             source: image,
-            //             sampler: None,
-            //             name: None,
-            //             extensions: Default::default(),
-            //             extras: Default::default(),
-            //         });
-
-            //         Some(texture::Info {
-            //             index: texture,
-            //             tex_coord: 0,
-            //             extensions: Default::default(),
-            //             extras: Default::default(),
-            //         })
-            //     } else {
-            //         None
-            //     };
-
-            //     let material = root.push(Material {
-            //         pbr_metallic_roughness: PbrMetallicRoughness {
-            //             base_color_factor: color,
-            //             base_color_texture: texture,
-            //             metallic_factor: StrengthFactor(0.0),
-            //             roughness_factor: StrengthFactor(1.0),
-            //             metallic_roughness_texture: None,
-            //             extensions: Default::default(),
-            //             extras: Default::default(),
-            //         },
-            //         ..Default::default()
-            //     });
-
-            //     Some(material)
-            // }
         })
         .collect();
 
