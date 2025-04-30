@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, Vec3};
 
 pub trait MyReadBytesExt: ReadBytesExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
@@ -7,6 +7,7 @@ pub trait MyReadBytesExt: ReadBytesExt {
     fn read_7bit_length_string(&mut self) -> std::io::Result<String>;
     fn read_vec3(&mut self) -> std::io::Result<Vec3>;
     fn read_mat4(&mut self) -> std::io::Result<Mat4>;
+    fn read_quat(&mut self) -> std::io::Result<Quat>;
 }
 
 impl<R: ReadBytesExt> MyReadBytesExt for R {
@@ -74,5 +75,13 @@ impl<R: ReadBytesExt> MyReadBytesExt for R {
         .transpose();
 
         Ok(mat)
+    }
+
+    fn read_quat(&mut self) -> std::io::Result<Quat> {
+        let x = self.read_f32::<LittleEndian>()?;
+        let y = self.read_f32::<LittleEndian>()?;
+        let z = self.read_f32::<LittleEndian>()?;
+        let w = self.read_f32::<LittleEndian>()?;
+        Ok(Quat::from_xyzw(x, y, z, w))
     }
 }

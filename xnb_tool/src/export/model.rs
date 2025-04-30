@@ -129,6 +129,18 @@ impl VertexElement {
             sparse: None,
         }
     }
+
+    pub fn semantic(&self) -> Semantic {
+        match self.usage {
+            ElementUsage::Position => Semantic::Positions,
+            ElementUsage::Normal => Semantic::Normals,
+            ElementUsage::Color => Semantic::Colors(self.usage_index as u32),
+            ElementUsage::TextureCoordinate => Semantic::TexCoords(self.usage_index as u32),
+            ElementUsage::BlendIndices => Semantic::Joints(self.usage_index as u32),
+            ElementUsage::BlendWeight => Semantic::Weights(self.usage_index as u32),
+            v => unimplemented!("semantic for element usage: {v:?}"),
+        }
+    }
 }
 
 impl From<ElementFormat> for ComponentType {
@@ -139,6 +151,7 @@ impl From<ElementFormat> for ComponentType {
             ElementFormat::Vector3 => ComponentType::F32,
             ElementFormat::Vector4 => ComponentType::F32,
             ElementFormat::Color => ComponentType::U8,
+            ElementFormat::Byte4 => ComponentType::U8,
             v => unimplemented!("component type for element format: {v:?}"),
         }
     }
@@ -152,19 +165,8 @@ impl From<ElementFormat> for Type {
             ElementFormat::Vector3 => Type::Vec3,
             ElementFormat::Vector4 => Type::Vec4,
             ElementFormat::Color => Type::Vec4,
+            ElementFormat::Byte4 => Type::Vec4,
             v => unimplemented!("type for element format: {v:?}"),
-        }
-    }
-}
-
-impl From<ElementUsage> for Semantic {
-    fn from(value: ElementUsage) -> Self {
-        match value {
-            ElementUsage::Position => Semantic::Positions,
-            ElementUsage::Normal => Semantic::Normals,
-            ElementUsage::Color => Semantic::Colors(0),
-            ElementUsage::TextureCoordinate => Semantic::TexCoords(0),
-            v => unimplemented!("semantic for element usage: {v:?}"),
         }
     }
 }
@@ -212,7 +214,8 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
         .map(|content| match content {
             Content::RenderDeferredEffect(..)
             | Content::AdditiveEffect(..)
-            | Content::BasicEffect(..) => {
+            | Content::BasicEffect(..)
+            | Content::SkinnedModelBasicEffect(..) => {
                 let json = serde_json::to_string(content).unwrap();
                 let material = root.push(Material {
                     extras: Some(RawValue::from_string(json).unwrap()),
@@ -335,7 +338,7 @@ fn build_mesh_part(
         attributes: {
             let mut map = BTreeMap::new();
             for (i, el) in vertex_decl.elements.iter().enumerate() {
-                map.insert(Checked::Valid(el.usage.into()), vertex_accessors[i]);
+                map.insert(Checked::Valid(el.semantic()), vertex_accessors[i]);
             }
             map
         },

@@ -140,15 +140,20 @@ impl Xnb {
                 return Ok(());
             }
             Content::String(..) => "string",
+            Content::ExternalReference(..) => "externalreference",
             Content::Item(..) => "item",
             Content::Character(..) => "character",
             Content::Texture2D(..) => "texture2d",
             Content::Model(..) => "model",
+            Content::SkinnedModel(..) => "skinnedmodel",
+            Content::SkinnedModelBone(..) => "skinnedmodelbone",
+            Content::SkinnedModelAnimationClip(..) => "skinnedmodelanimationclip",
             Content::VertexDeclaration(..) => "vertexdecl",
             Content::VertexBuffer(..) => "vertexbuffer",
             Content::IndexBuffer(..) => "indexbuffer",
             Content::Effect(..) => "effect",
             Content::BasicEffect(..) => "basiceffect",
+            Content::SkinnedModelBasicEffect(..) => "skinnedmodelbasiceffect",
             Content::AdditiveEffect(..) => "additiveeffect",
             Content::RenderDeferredEffect(..) => "renderdeferredeffect",
         };
@@ -203,6 +208,21 @@ impl Xnb {
                 eprintln!("saved to {}", file_path.display());
             }
             Content::Model(model) => {
+                let file_path = file_path.with_extension("glb");
+                let exists = file_path.try_exists()?;
+                if exists && !options.overwrite {
+                    anyhow::bail!("{} already exists", file_path.display());
+                }
+                let mut file = File::create(&file_path).context("failed to create glb file")?;
+
+                let glb = model
+                    .to_glb(&content.shared_content)
+                    .context("failed to build glb")?;
+                file.write_all(&glb)?;
+
+                eprintln!("saved to {}", file_path.display());
+            }
+            Content::SkinnedModel(model) => {
                 let file_path = file_path.with_extension("glb");
                 let exists = file_path.try_exists()?;
                 if exists && !options.overwrite {

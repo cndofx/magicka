@@ -3,9 +3,9 @@ use std::{io::Read, vec};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::ext::MyReadBytesExt;
+use crate::{ext::MyReadBytesExt, xnb::TypeReader};
 
-use super::color::Color;
+use super::{Content, color::Color};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Effect {
@@ -49,6 +49,85 @@ impl BasicEffect {
             specular_power,
             alpha,
             vertex_color_enabled,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SkinnedModelBasicEffect {
+    pub method: u8,
+    pub emissive_amount: f32,
+    pub diffuse_color: Color,
+    pub specular_amount: f32,
+    pub specular_power: f32,
+    pub alpha: f32,
+    pub use_soft_light_blend: bool,
+    pub map_0_diffuse: Option<String>,
+    pub map_1_diffuse: Option<String>,
+    pub map_0_damage: Option<String>,
+    pub map_1_damage: Option<String>,
+    pub material_map: Option<String>,
+    pub normal_map: Option<String>,
+}
+
+impl SkinnedModelBasicEffect {
+    pub fn read(reader: &mut impl Read, type_readers: &[TypeReader]) -> anyhow::Result<Self> {
+        let method = reader.read_u8()?;
+        let emissive_amount = reader.read_f32::<LittleEndian>()?;
+        let diffuse_color = Color::read(reader)?;
+        let specular_amount = reader.read_f32::<LittleEndian>()?;
+        let specular_power = reader.read_f32::<LittleEndian>()?;
+        let alpha = reader.read_f32::<LittleEndian>()?;
+        let use_soft_light_blend = reader.read_bool()?;
+        let map_0_diffuse_enabled = reader.read_bool()?;
+        let map_1_diffuse_enabled = reader.read_bool()?;
+        let material_map_enabled = reader.read_bool()?;
+        let map_0_damage_enabled = reader.read_bool()?;
+        let map_1_damage_enabled = reader.read_bool()?;
+        let normal_map_enabled = reader.read_bool()?;
+
+        fn read_external_reference(
+            enabled: bool,
+            reader: &mut impl Read,
+            type_readers: &[TypeReader],
+        ) -> anyhow::Result<Option<String>> {
+            let reference = if enabled {
+                let reference = Content::read(reader, type_readers)?;
+                let Content::ExternalReference(reference) = reference else {
+                    anyhow::bail!("expected external reference");
+                };
+                Some(reference)
+            } else {
+                let z = reader.read_u8()?;
+                if z != 0 {
+                    anyhow::bail!("expected zero byte for unused external reference");
+                }
+                None
+            };
+            Ok(reference)
+        }
+
+        let map_0_diffuse = read_external_reference(map_0_diffuse_enabled, reader, type_readers)?;
+        let map_1_diffuse = read_external_reference(map_1_diffuse_enabled, reader, type_readers)?;
+        let material_map = read_external_reference(material_map_enabled, reader, type_readers)?;
+        let map_0_damage = read_external_reference(map_0_damage_enabled, reader, type_readers)?;
+        let map_1_damage = read_external_reference(map_1_damage_enabled, reader, type_readers)?;
+        let normal_map = read_external_reference(normal_map_enabled, reader, type_readers)?;
+
+        Ok(SkinnedModelBasicEffect {
+            method,
+            emissive_amount,
+            diffuse_color,
+            specular_amount,
+            specular_power,
+            alpha,
+            use_soft_light_blend,
+            map_0_diffuse,
+            map_1_diffuse,
+            map_0_damage,
+            map_1_damage,
+            material_map,
+            normal_map,
         })
     }
 }
