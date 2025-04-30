@@ -148,6 +148,7 @@ impl Xnb {
             Content::VertexBuffer(..) => "vertexbuffer",
             Content::IndexBuffer(..) => "indexbuffer",
             Content::Effect(..) => "effect",
+            Content::BasicEffect(..) => "basiceffect",
             Content::AdditiveEffect(..) => "additiveeffect",
             Content::RenderDeferredEffect(..) => "renderdeferredeffect",
         };

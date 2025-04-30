@@ -22,6 +22,38 @@ impl Effect {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct BasicEffect {
+    pub texture: String,
+    pub diffuse_color: Color,
+    pub emissive_color: Color,
+    pub specular_color: Color,
+    pub specular_power: f32,
+    pub alpha: f32,
+    pub vertex_color_enabled: bool,
+}
+
+impl BasicEffect {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let texture = reader.read_7bit_length_string()?;
+        let diffuse_color = Color::read(reader)?;
+        let emissive_color = Color::read(reader)?;
+        let specular_color = Color::read(reader)?;
+        let specular_power = reader.read_f32::<LittleEndian>()?;
+        let alpha = reader.read_f32::<LittleEndian>()?;
+        let vertex_color_enabled = reader.read_bool()?;
+        Ok(BasicEffect {
+            texture,
+            diffuse_color,
+            emissive_color,
+            specular_color,
+            specular_power,
+            alpha,
+            vertex_color_enabled,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AdditiveEffect {
     pub color_tint: Color,
     pub vertex_color_enabled: bool,

@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use character::Character;
-use effect::{AdditiveEffect, Effect, RenderDeferredEffect};
+use effect::{AdditiveEffect, BasicEffect, Effect, RenderDeferredEffect};
 use item::Item;
 use model::{IndexBuffer, Model, VertexBuffer, VertexDeclaration};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,7 @@ const VERTEX_DECL_READER_NAME: &str = "Microsoft.Xna.Framework.Content.VertexDec
 const VERTEX_BUFFER_READER_NAME: &str = "Microsoft.Xna.Framework.Content.VertexBufferReader";
 const INDEX_BUFFER_READER_NAME: &str = "Microsoft.Xna.Framework.Content.IndexBufferReader";
 const EFFECT_READER_NAME: &str = "Microsoft.Xna.Framework.Content.EffectReader";
+const BASIC_EFFECT_READER_NAME: &str = "Microsoft.Xna.Framework.Content.BasicEffectReader";
 
 const ADDITIVE_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.AdditiveEffectReader";
 const RENDER_DEFERRED_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.RenderDeferredEffectReader";
@@ -60,6 +61,7 @@ pub enum Content {
     VertexBuffer(VertexBuffer),
     IndexBuffer(IndexBuffer),
     Effect(Effect),
+    BasicEffect(BasicEffect),
     AdditiveEffect(AdditiveEffect),
     RenderDeferredEffect(RenderDeferredEffect),
 }
@@ -117,6 +119,10 @@ impl Content {
             EFFECT_READER_NAME => {
                 let effect = Effect::read(reader)?;
                 return Ok(Content::Effect(effect));
+            }
+            BASIC_EFFECT_READER_NAME => {
+                let effect = BasicEffect::read(reader)?;
+                return Ok(Content::BasicEffect(effect));
             }
             _ => {
                 anyhow::bail!("unknown type reader: {}", type_reader.name);
