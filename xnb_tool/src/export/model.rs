@@ -16,6 +16,7 @@ use gltf::{
         validation::{Checked, USize64},
     },
 };
+use serde_json::value::RawValue;
 
 use crate::content::{
     Content,
@@ -234,6 +235,8 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
                     extras: Default::default(),
                 });
 
+                let effect_json = serde_json::to_string(effect).unwrap();
+
                 let material = root.push(Material {
                     pbr_metallic_roughness: PbrMetallicRoughness {
                         base_color_factor: color,
@@ -249,6 +252,7 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
                         extensions: Default::default(),
                         extras: Default::default(),
                     },
+                    extras: Some(RawValue::from_string(effect_json).unwrap()),
                     ..Default::default()
                 });
 
