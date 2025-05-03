@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_add;
+render_mode cull_disabled, blend_add, unshaded;
 
 uniform sampler2D color_texture : source_color;
 uniform bool color_texture_enabled = true;

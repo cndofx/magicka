@@ -50,14 +50,14 @@ impl SkinnedModel {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinnedModelBone {
-    index: u16,
-    name: String,
-    translation: Vec3,
-    orientation: Quat,
-    scale: Vec3,
-    inverse_bind_pose_transform: Mat4,
-    shared_parent_ref: usize,
-    shared_child_refs: Vec<usize>,
+    pub index: u16,
+    pub name: String,
+    pub translation: Vec3,
+    pub orientation: Quat,
+    pub scale: Vec3,
+    pub inverse_bind_pose_transform: Mat4,
+    pub shared_parent_ref: usize,
+    pub shared_child_refs: Vec<usize>,
 }
 
 impl SkinnedModelBone {
@@ -91,9 +91,9 @@ impl SkinnedModelBone {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinnedModelAnimationClip {
-    name: String,
-    duration: f32,
-    channels: HashMap<String, Vec<SkinnedModelAnimationKeyframe>>,
+    pub name: String,
+    pub duration: f32,
+    pub channels: HashMap<String, Vec<SkinnedModelAnimationKeyframe>>,
 }
 
 impl SkinnedModelAnimationClip {
@@ -109,11 +109,11 @@ impl SkinnedModelAnimationClip {
             for _ in 0..num_frames {
                 let time = reader.read_f32::<LittleEndian>()?;
                 let translation = reader.read_vec3()?;
-                let orienation = reader.read_quat()?;
+                let orientation = reader.read_quat()?;
                 let scale = reader.read_vec3()?;
                 let pose = SkinnedModelPose {
                     translation,
-                    orienation,
+                    orientation,
                     scale,
                 };
                 let frame = SkinnedModelAnimationKeyframe { time, pose };
@@ -139,6 +139,6 @@ pub struct SkinnedModelAnimationKeyframe {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinnedModelPose {
     translation: Vec3,
-    orienation: Quat,
+    orientation: Quat,
     scale: Vec3,
 }

@@ -5,11 +5,10 @@ use glam::Vec3;
 use gltf::{
     Glb, Semantic,
     binary::Header,
-    buffer::Target,
     json::{
-        self, Accessor, Buffer, Index, Material, Node, Root, Scene,
+        self, Accessor, Buffer, Index, Material, Node, Root,
         accessor::{ComponentType, GenericComponentType, Type},
-        buffer::{Stride, View},
+        buffer::{Stride, Target, View},
         mesh::Primitive,
         validation::{Checked, USize64},
     },
@@ -24,188 +23,34 @@ use crate::content::{
     },
 };
 
-impl Model {
-    pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
-        let mut root = Root::default();
+pub mod basic;
+pub mod skinned;
 
-        let buffer = build_buffer(&mut root, self);
-
-        let materials = build_materials(&mut root, shared_content);
-
-        let mesh_nodes: Vec<Index<Node>> = self
-            .meshes
-            .iter()
-            .enumerate()
-            .map(|(mesh_idx, mesh)| {
-                build_mesh(&mut root, &buffer, self, mesh, mesh_idx, &materials)
-            })
-            .collect();
-
-        let scene = root.push(Scene {
-            nodes: mesh_nodes,
-            name: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-        root.scene = Some(scene);
-
-        let json_string = serde_json::to_string(&root)?;
-        let json_padded_len = pad_to_multiple_of_four(json_string.len());
-
-        let mut bin = buffer.data.clone();
-        while bin.len() % 4 != 0 {
-            bin.push(0);
-        }
-
-        let glb = Glb {
-            header: Header {
-                magic: *b"glTF",
-                version: 2,
-                length: (json_padded_len + bin.len())
-                    .try_into()
-                    .context("file size exceeds binary glTF size limit")?,
-            },
-            json: Cow::Owned(json_string.into_bytes()),
-            bin: Some(Cow::Owned(bin)),
-        };
-
-        let bytes = glb.to_vec().context("failed to serialize glb")?;
-        Ok(bytes)
-    }
+fn pad_to_multiple_of_four(n: usize) -> usize {
+    (n + 3) & !3
 }
 
-impl VertexDeclaration {
-    pub fn accessors(
-        &self,
-        view: Index<View>,
-        num_vertices: u64,
-        pos_min: Vec3,
-        pos_max: Vec3,
-    ) -> Vec<Accessor> {
-        self.elements
-            .iter()
-            .map(|el| el.accessor(view, num_vertices, pos_min, pos_max))
-            .collect()
-    }
-}
+fn build_glb_bytes(json: String, mut bin: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+    let json_padded_len = pad_to_multiple_of_four(json.len());
 
-impl VertexElement {
-    pub fn accessor(
-        &self,
-        view: Index<View>,
-        num_vertices: u64,
-        pos_min: Vec3,
-        pos_max: Vec3,
-    ) -> Accessor {
-        let (min, max) = match self.usage {
-            ElementUsage::Position => (
-                Some(serde_json::Value::from(vec![
-                    pos_min.x, pos_min.y, pos_min.z,
-                ])),
-                Some(serde_json::Value::from(vec![
-                    pos_max.x, pos_max.y, pos_max.z,
-                ])),
-            ),
-            _ => (None, None),
-        };
-
-        let normalized = match self.format {
-            ElementFormat::Color => true,
-            _ => false,
-        };
-
-        Accessor {
-            buffer_view: Some(view),
-            byte_offset: Some(USize64(self.offset as u64)),
-            count: USize64(num_vertices),
-            component_type: Checked::Valid(GenericComponentType(self.format.into())),
-            extensions: Default::default(),
-            extras: Default::default(),
-            type_: Checked::Valid(self.format.into()),
-            min,
-            max,
-            name: None,
-            normalized,
-            sparse: None,
-        }
+    while bin.len() % 4 != 0 {
+        bin.push(0);
     }
 
-    pub fn semantic(&self) -> Semantic {
-        match self.usage {
-            ElementUsage::Position => Semantic::Positions,
-            ElementUsage::Normal => Semantic::Normals,
-            ElementUsage::Color => Semantic::Colors(self.usage_index as u32),
-            ElementUsage::TextureCoordinate => Semantic::TexCoords(self.usage_index as u32),
-            ElementUsage::BlendIndices => Semantic::Joints(self.usage_index as u32),
-            ElementUsage::BlendWeight => Semantic::Weights(self.usage_index as u32),
-            v => unimplemented!("semantic for element usage: {v:?}"),
-        }
-    }
-}
+    let glb = Glb {
+        header: Header {
+            magic: *b"glTF",
+            version: 2,
+            length: (json_padded_len + bin.len())
+                .try_into()
+                .context("file size exceeds binary glTF size limit")?,
+        },
+        json: Cow::Owned(json.into_bytes()),
+        bin: Some(Cow::Owned(bin)),
+    };
 
-impl From<ElementFormat> for ComponentType {
-    fn from(value: ElementFormat) -> Self {
-        match value {
-            ElementFormat::Single => ComponentType::F32,
-            ElementFormat::Vector2 => ComponentType::F32,
-            ElementFormat::Vector3 => ComponentType::F32,
-            ElementFormat::Vector4 => ComponentType::F32,
-            ElementFormat::Color => ComponentType::U8,
-            ElementFormat::Byte4 => ComponentType::U8,
-            v => unimplemented!("component type for element format: {v:?}"),
-        }
-    }
-}
-
-impl From<ElementFormat> for Type {
-    fn from(value: ElementFormat) -> Self {
-        match value {
-            ElementFormat::Single => Type::Scalar,
-            ElementFormat::Vector2 => Type::Vec2,
-            ElementFormat::Vector3 => Type::Vec3,
-            ElementFormat::Vector4 => Type::Vec4,
-            ElementFormat::Color => Type::Vec4,
-            ElementFormat::Byte4 => Type::Vec4,
-            v => unimplemented!("type for element format: {v:?}"),
-        }
-    }
-}
-
-struct FullBuffer {
-    index: Index<Buffer>,
-    data: Vec<u8>,
-    vertex_offsets: Vec<usize>,
-    index_offsets: Vec<usize>,
-}
-
-fn build_buffer(root: &mut Root, model: &Model) -> FullBuffer {
-    let mut vertex_offsets = Vec::new();
-    let mut index_offsets = Vec::new();
-    let mut buffer_data = Vec::new();
-
-    for mesh in &model.meshes {
-        vertex_offsets.push(buffer_data.len());
-        buffer_data.extend_from_slice(&mesh.vertex_buffer.data);
-
-        index_offsets.push(buffer_data.len());
-        let reversed_indices = reverse_winding(&mesh.index_buffer);
-        buffer_data.extend_from_slice(&reversed_indices.data);
-    }
-
-    let buffer_index = root.push(Buffer {
-        byte_length: USize64(buffer_data.len() as u64),
-        name: None,
-        uri: None,
-        extensions: Default::default(),
-        extras: Default::default(),
-    });
-
-    FullBuffer {
-        index: buffer_index,
-        data: buffer_data,
-        vertex_offsets,
-        index_offsets,
-    }
+    let bytes = glb.to_vec().context("failed to serialize glb")?;
+    Ok(bytes)
 }
 
 fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<Index<Material>>> {
@@ -228,6 +73,58 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
         .collect();
 
     materials
+}
+
+struct FullBuffer {
+    pub index: Index<Buffer>,
+    pub data: Vec<u8>,
+    pub vertex_offsets: Vec<usize>,
+    pub index_offsets: Vec<usize>,
+    pub inverse_bind_matrices_offset: usize,
+    pub inverse_bind_matrices_count: usize,
+}
+
+fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> FullBuffer {
+    let mut vertex_offsets = Vec::new();
+    let mut index_offsets = Vec::new();
+    let mut buffer_data = Vec::new();
+
+    for mesh in &model.meshes {
+        vertex_offsets.push(buffer_data.len());
+        buffer_data.extend_from_slice(&mesh.vertex_buffer.data);
+
+        index_offsets.push(buffer_data.len());
+        let reversed_indices = reverse_winding(&mesh.index_buffer);
+        buffer_data.extend_from_slice(&reversed_indices.data);
+    }
+
+    let inverse_bind_matrices_offset = buffer_data.len();
+    let mut inverse_bind_matrices_count = 0;
+    for content in shared_content {
+        if let Content::SkinnedModelBone(bone) = content {
+            buffer_data.extend_from_slice(bytemuck::cast_slice(&[bone
+                .inverse_bind_pose_transform
+                .transpose()]));
+            inverse_bind_matrices_count += 1;
+        }
+    }
+
+    let buffer_index = root.push(Buffer {
+        byte_length: USize64(buffer_data.len() as u64),
+        name: None,
+        uri: None,
+        extensions: Default::default(),
+        extras: Default::default(),
+    });
+
+    FullBuffer {
+        index: buffer_index,
+        data: buffer_data,
+        vertex_offsets,
+        index_offsets,
+        inverse_bind_matrices_offset,
+        inverse_bind_matrices_count,
+    }
 }
 
 fn build_mesh(
@@ -366,10 +263,6 @@ fn build_mesh_part(
     node
 }
 
-fn pad_to_multiple_of_four(n: usize) -> usize {
-    (n + 3) & !3
-}
-
 fn calculate_bounds(vertices: &[u8], decl: &VertexDeclaration) -> (Vec3, Vec3) {
     let offset = decl
         .elements
@@ -431,5 +324,102 @@ fn reverse_winding(indices: &IndexBuffer) -> IndexBuffer {
     IndexBuffer {
         is_16_bit: indices.is_16_bit,
         data,
+    }
+}
+
+impl VertexDeclaration {
+    pub fn accessors(
+        &self,
+        view: Index<View>,
+        num_vertices: u64,
+        pos_min: Vec3,
+        pos_max: Vec3,
+    ) -> Vec<Accessor> {
+        self.elements
+            .iter()
+            .map(|el| el.accessor(view, num_vertices, pos_min, pos_max))
+            .collect()
+    }
+}
+
+impl VertexElement {
+    pub fn accessor(
+        &self,
+        view: Index<View>,
+        num_vertices: u64,
+        pos_min: Vec3,
+        pos_max: Vec3,
+    ) -> Accessor {
+        let (min, max) = match self.usage {
+            ElementUsage::Position => (
+                Some(serde_json::Value::from(vec![
+                    pos_min.x, pos_min.y, pos_min.z,
+                ])),
+                Some(serde_json::Value::from(vec![
+                    pos_max.x, pos_max.y, pos_max.z,
+                ])),
+            ),
+            _ => (None, None),
+        };
+
+        let normalized = match self.format {
+            ElementFormat::Color => true,
+            _ => false,
+        };
+
+        Accessor {
+            buffer_view: Some(view),
+            byte_offset: Some(USize64(self.offset as u64)),
+            count: USize64(num_vertices),
+            component_type: Checked::Valid(GenericComponentType(self.format.into())),
+            extensions: Default::default(),
+            extras: Default::default(),
+            type_: Checked::Valid(self.format.into()),
+            min,
+            max,
+            name: None,
+            normalized,
+            sparse: None,
+        }
+    }
+
+    pub fn semantic(&self) -> Semantic {
+        match self.usage {
+            ElementUsage::Position => Semantic::Positions,
+            ElementUsage::Normal => Semantic::Normals,
+            ElementUsage::Color => Semantic::Colors(self.usage_index as u32),
+            ElementUsage::TextureCoordinate => Semantic::TexCoords(self.usage_index as u32),
+            ElementUsage::BlendIndices => Semantic::Joints(self.usage_index as u32),
+            ElementUsage::BlendWeight => Semantic::Weights(self.usage_index as u32),
+            v => unimplemented!("semantic for element usage: {v:?}"),
+        }
+    }
+}
+
+impl From<ElementFormat> for ComponentType {
+    fn from(value: ElementFormat) -> Self {
+        match value {
+            ElementFormat::Single => ComponentType::F32,
+            ElementFormat::Vector2 => ComponentType::F32,
+            ElementFormat::Vector3 => ComponentType::F32,
+            ElementFormat::Vector4 => ComponentType::F32,
+            ElementFormat::Color => ComponentType::U8,
+            ElementFormat::Byte4 => ComponentType::U8,
+            v => unimplemented!("component type for element format: {v:?}"),
+        }
+    }
+}
+
+impl From<ElementFormat> for Type {
+    fn from(value: ElementFormat) -> Self {
+        match value {
+            ElementFormat::Single => Type::Scalar,
+            ElementFormat::Vector2 => Type::Vec2,
+            ElementFormat::Vector3 => Type::Vec3,
+            ElementFormat::Vector4 => Type::Vec4,
+            ElementFormat::Color => Type::Vec4,
+            ElementFormat::Byte4 => Type::Vec4,
+            v => unimplemented!("type for element format: {v:?}"),
+        }
     }
 }
