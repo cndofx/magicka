@@ -40,7 +40,7 @@ impl Model {
                 mesh,
                 mesh_idx,
                 &materials,
-                &bone_nodes,
+                Some(&bone_nodes),
             );
         }
 
