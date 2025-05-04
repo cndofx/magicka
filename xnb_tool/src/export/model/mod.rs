@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use anyhow::Context;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use gltf::{
     Glb, Semantic,
     binary::Header,
@@ -75,6 +75,114 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
     materials
 }
 
+fn build_bones(root: &mut Root, model: &Model) -> anyhow::Result<(Index<Node>, Vec<Index<Node>>)> {
+    let bone_nodes: Vec<Index<Node>> = model
+        .bones
+        .iter()
+        .map(|bone| {
+            let transform = if bone.transform != Mat4::IDENTITY {
+                Some(bone.transform.transpose().to_cols_array())
+            } else {
+                None
+            };
+            root.push(Node {
+                name: Some(bone.name.clone()),
+                matrix: transform,
+                ..Default::default()
+            })
+        })
+        .collect();
+
+    // let root_bone_ref = model
+    //     .bones_hierarchy
+    //     .iter()
+    //     .enumerate()
+    //     .find(|(_, relation)| relation.parent_ref == 0)
+    //     .map(|(i, _)| i + 1)
+    //     .ok_or_else(|| anyhow!("could not find root bone"))?;
+
+    let mut root_bone_node = None;
+
+    for (i, relation) in model.bones_hierarchy.iter().enumerate() {
+        // let Some(parent_bone_index) = bone_nodes.get(relation.parent_ref as usize - 1) else {
+        //     continue;
+        // };
+        let bone_node_index = bone_nodes[i];
+        let bone_node = &mut root.nodes[bone_node_index.value()];
+        for child_ref in &relation.children_refs {
+            let children = bone_node.children.get_or_insert_default();
+            let child_bone_index = bone_nodes[*child_ref as usize - 1];
+            children.push(child_bone_index);
+        }
+        if relation.parent_ref == 0 {
+            root_bone_node = Some(bone_node_index);
+        }
+    }
+
+    Ok((root_bone_node.unwrap(), bone_nodes))
+
+    // let root_bone = &model.bones[root_bone_ref - 1];
+
+    // let root_bone_node = root.push(Node {
+    //     name: Some(root_bone.name.clone()),
+    //     matrix: Some(root_bone.transform.to_cols_array()),
+    //     ..Default::default()
+    // });
+
+    // fn build_bone_tree_recursive(
+    //     root: &mut Root,
+    //     model: &Model,
+    //     parent_node: Index<Node>,
+    //     parent_bone_ref: usize,
+    // ) {
+    //     let relation = &model.bones_hierarchy[parent_bone_ref - 1];
+    //     for child_ref in &relation.children_refs {
+    //         let child_ref = *child_ref as usize;
+    //         let child_bone = &model.bones[child_ref - 1];
+    //         let child_bone_node = root.push(Node {
+    //             name: Some(child_bone.name.clone()),
+    //             matrix: Some(child_bone.transform.to_cols_array()),
+    //             ..Default::default()
+    //         });
+    //         let parent_node = &mut root.nodes[parent_node.value()];
+    //         let parent_node_children = parent_node.children.get_or_insert_default();
+    //         parent_node_children.push(child_bone_node);
+    //         build_bone_tree_recursive(root, model, child_bone_node, child_ref);
+    //     }
+    // }
+
+    // build_bone_tree_recursive(root, model, root_bone_node, root_bone_ref);
+
+    // todo!()
+
+    // for child_ref in parent_bone.shared_child_refs.iter().copied() {
+    //     let Content::SkinnedModelBone(child_bone) = &shared_content[child_ref - 1] else {
+    //         anyhow::bail!("expected child bone at shared content index {}", child_ref);
+    //     };
+    //     let child_bone_node = root.push(Node {
+    //         name: Some(child_bone.name.clone()),
+    //         translation: Some(child_bone.translation.into()),
+    //         rotation: Some(UnitQuaternion(
+    //             child_bone.orientation.normalize().to_array(),
+    //         )),
+    //         scale: Some(child_bone.scale.into()),
+    //         ..Default::default()
+    //     });
+    //     joint_nodes.push(child_bone_node);
+    //     let parent_node = &mut root.nodes[parent_node.value()];
+    //     let parent_node_children = parent_node.children.get_or_insert_default();
+    //     parent_node_children.push(child_bone_node);
+    //     build_bone_tree_recursive(
+    //         root,
+    //         child_bone_node,
+    //         child_bone,
+    //         shared_content,
+    //         joint_nodes,
+    //     )?;
+    // }
+    // Ok(())
+}
+
 struct FullBuffer {
     pub index: Index<Buffer>,
     pub data: Vec<u8>,
@@ -127,27 +235,35 @@ fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> F
     }
 }
 
-fn build_mesh(
+fn build_mesh_parts(
     root: &mut Root,
     buffer: &FullBuffer,
     model: &Model,
     mesh: &Mesh,
     mesh_idx: usize,
     materials: &[Option<Index<Material>>],
-) -> Index<Node> {
+    bones: &[Index<Node>],
+) -> Vec<Index<Node>> {
     let part_nodes: Vec<Index<Node>> = mesh
         .parts
         .iter()
         .map(|part| build_mesh_part(root, buffer, model, mesh, mesh_idx, part, materials))
         .collect();
 
-    let node = root.push(Node {
-        children: Some(part_nodes),
-        name: Some(mesh.name.clone()),
-        ..Default::default()
-    });
+    let parent_node_index = bones[mesh.parent_bone_ref as usize - 1];
+    let parent_node = &mut root.nodes[parent_node_index.value()];
+    let parent_node_children = parent_node.children.get_or_insert_default();
+    parent_node_children.extend_from_slice(&part_nodes);
 
-    node
+    // let node = root.push(Node {
+    //     children: Some(part_nodes),
+    //     name: Some(mesh.name.clone()),
+    //     ..Default::default()
+    // });
+
+    // node
+
+    part_nodes
 }
 
 fn build_mesh_part(

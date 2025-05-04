@@ -1,8 +1,9 @@
+use anyhow::anyhow;
 use gltf::json::{Index, Node, Root, Scene};
 
 use crate::content::{Content, model::Model};
 
-use super::{build_buffer, build_glb_bytes, build_materials, build_mesh};
+use super::{build_bones, build_buffer, build_glb_bytes, build_materials, build_mesh_parts};
 
 impl Model {
     pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
@@ -12,17 +13,44 @@ impl Model {
 
         let materials = build_materials(&mut root, shared_content);
 
-        let mesh_nodes: Vec<Index<Node>> = self
-            .meshes
-            .iter()
-            .enumerate()
-            .map(|(mesh_idx, mesh)| {
-                build_mesh(&mut root, &buffer, self, mesh, mesh_idx, &materials)
-            })
-            .collect();
+        let (root_bone_node, bone_nodes) = build_bones(&mut root, self)?;
+
+        // let mesh_nodes: Vec<Index<Node>> = self
+        //     .meshes
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(mesh_idx, mesh)| {
+        //         build_mesh(
+        //             &mut root,
+        //             &buffer,
+        //             self,
+        //             mesh,
+        //             mesh_idx,
+        //             &materials,
+        //             &bone_nodes,
+        //         )
+        //     })
+        //     .collect();
+
+        for (mesh_idx, mesh) in self.meshes.iter().enumerate() {
+            build_mesh_parts(
+                &mut root,
+                &buffer,
+                self,
+                mesh,
+                mesh_idx,
+                &materials,
+                &bone_nodes,
+            );
+        }
+
+        // let mut scene_nodes = mesh_nodes.clone();
+        // scene_nodes.push(root_bone_node);
 
         let scene = root.push(Scene {
-            nodes: mesh_nodes,
+            nodes: vec![root_bone_node],
+            // nodes: scene_nodes,
+            // nodes: mesh_nodes,
             name: None,
             extensions: Default::default(),
             extras: Default::default(),

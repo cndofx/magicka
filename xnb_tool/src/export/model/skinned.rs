@@ -27,7 +27,7 @@ use crate::content::{
 };
 
 use super::{
-    FullBuffer, build_buffer, build_glb_bytes, build_materials, build_mesh,
+    FullBuffer, build_bones, build_buffer, build_glb_bytes, build_materials, build_mesh_parts,
     pad_to_multiple_of_four, reverse_winding,
 };
 
@@ -39,35 +39,68 @@ impl SkinnedModel {
 
         let materials = build_materials(&mut root, shared_content);
 
-        let mesh_nodes: Vec<Index<Node>> = self
+        // let mesh_nodes: Vec<Index<Node>> = self
+        //     .model
+        //     .meshes
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(mesh_idx, mesh)| {
+        //         build_mesh(&mut root, &buffer, &self.model, mesh, mesh_idx, &materials)
+        //     })
+        //     .collect();
+        // dbg!(mesh_nodes.len());
+
+        let (root_bone_node, bone_nodes) = build_bones(&mut root, &self.model)?;
+
+        // for (mesh_idx, mesh) in self.model.meshes.iter().enumerate() {
+        //     build_mesh(
+        //         &mut root,
+        //         &buffer,
+        //         &self.model,
+        //         mesh,
+        //         mesh_idx,
+        //         &materials,
+        //         &bone_nodes,
+        //     );
+        // }
+        let mesh_part_node_indices: Vec<Index<Node>> = self
             .model
             .meshes
             .iter()
             .enumerate()
             .map(|(mesh_idx, mesh)| {
-                build_mesh(&mut root, &buffer, &self.model, mesh, mesh_idx, &materials)
+                build_mesh_parts(
+                    &mut root,
+                    &buffer,
+                    &self.model,
+                    mesh,
+                    mesh_idx,
+                    &materials,
+                    &bone_nodes,
+                )
             })
+            .flatten()
             .collect();
-        dbg!(mesh_nodes.len());
 
-        let (skin, root_bone_node) = build_skin(&mut root, &buffer, self, shared_content)?;
+        let (skin, root_skin_bone_node) = build_skin(&mut root, &buffer, self, shared_content)?;
 
-        let mut part_node_indices = Vec::new();
-        for mesh_node_index in &mesh_nodes {
-            let mesh_node = &root.nodes[mesh_node_index.value()];
-            if let Some(children) = mesh_node.children.as_ref() {
-                part_node_indices.extend_from_slice(children);
-            }
+        // let mut part_node_indices = Vec::new();
+        // for mesh_node_index in &mesh_nodes {
+        //     let mesh_node = &root.nodes[mesh_node_index.value()];
+        //     if let Some(children) = mesh_node.children.as_ref() {
+        //         part_node_indices.extend_from_slice(children);
+        //     }
+        // }
+        for index in &mesh_part_node_indices {
+            root.nodes[index.value()].skin = Some(skin);
         }
-        for part_node_index in &part_node_indices {
-            root.nodes[part_node_index.value()].skin = Some(skin);
-        }
 
-        let mut scene_nodes = mesh_nodes.clone();
-        scene_nodes.push(root_bone_node);
+        // let mut scene_nodes = mesh_nodes.clone();
+        // scene_nodes.push(root_bone_node);
 
         let scene = root.push(Scene {
-            nodes: scene_nodes,
+            nodes: vec![root_bone_node, root_skin_bone_node],
+            // nodes: scene_nodes,
             name: None,
             extensions: Default::default(),
             extras: Default::default(),
