@@ -50,7 +50,6 @@ impl SkinnedModel {
             root.nodes[index.value()].skin = Some(skin);
         }
 
-        // build animation
         build_animations(&mut root, &buffer, self, shared_content)?;
 
         let mut scene_nodes = mesh_node_indices.clone();
@@ -206,161 +205,151 @@ fn build_animations(
             }
         }
 
-        // dbg!(&buffer.animation_timestamp_offsets, &anim.name);
-        let timestamp_offset = buffer.animation_timestamp_offsets[&anim.name];
-        let timestamp_view = root.push(View {
-            buffer: buffer.index,
-            byte_length: USize64((timestamp_offset.count * std::mem::size_of::<f32>()) as u64),
-            byte_offset: Some(USize64(timestamp_offset.offset as u64)),
-            byte_stride: None,
-            target: None,
-            name: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-        let timestamp_accessor = root.push(Accessor {
-            buffer_view: Some(timestamp_view),
-            byte_offset: Some(USize64(0)),
-            count: USize64(timestamp_offset.count as u64),
-            component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
-            type_: Checked::Valid(Type::Scalar),
-            name: None,
-            sparse: None,
-            min: Some(Value::from(vec![0.0])),
-            max: Some(Value::from(vec![max_timestamp])),
-            normalized: false,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
+        let mut samplers = Vec::new();
+        let mut channels = Vec::new();
 
-        // // let transform_offset = buffer.animation_transform_offsets[&anim.name];
-        // let transform_size = std::mem::size_of::<f32>() * (3 + 4 + 3);
-        // let transform_view = root.push(View {
-        //     buffer: buffer.index,
-        //     byte_length: USize64((transform_offset.count * transform_size) as u64),
-        //     byte_offset: Some(USize64(transform_offset.offset as u64)),
-        //     // byte_stride: None,
-        //     byte_stride: Some(Stride(transform_size)),
-        //     target: None,
-        //     name: None,
-        //     extensions: Default::default(),
-        //     extras: Default::default(),
-        // });
-
-        let translation_offset = buffer.animation_translation_offsets[&anim.name];
-        let translation_view = root.push(View {
-            buffer: buffer.index,
-            byte_length: USize64(
-                (translation_offset.count * std::mem::size_of::<f32>() * 3) as u64,
-            ),
-            byte_offset: Some(USize64(translation_offset.offset as u64)),
-            byte_stride: None,
-            target: None,
-            name: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-        let translation_accessor = root.push(Accessor {
-            buffer_view: Some(translation_view),
-            byte_offset: Some(USize64(0)),
-            count: USize64(translation_offset.count as u64),
-            component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
-            type_: Checked::Valid(Type::Vec3),
-            name: None,
-            sparse: None,
-            min: None,
-            max: None,
-            normalized: false,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        let rotation_offset = buffer.animation_orientation_offsets[&anim.name];
-        let rotation_view = root.push(View {
-            buffer: buffer.index,
-            byte_length: USize64((rotation_offset.count * std::mem::size_of::<f32>() * 4) as u64),
-            byte_offset: Some(USize64(rotation_offset.offset as u64)),
-            byte_stride: None,
-            target: None,
-            name: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-        let rotation_accessor = root.push(Accessor {
-            buffer_view: Some(rotation_view),
-            byte_offset: Some(USize64(0)),
-            count: USize64(rotation_offset.count as u64),
-            component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
-            type_: Checked::Valid(Type::Vec4),
-            name: None,
-            sparse: None,
-            min: None,
-            max: None,
-            normalized: false,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        let scale_offset = buffer.animation_scale_offsets[&anim.name];
-        let scale_view = root.push(View {
-            buffer: buffer.index,
-            byte_length: USize64((scale_offset.count * std::mem::size_of::<f32>() * 4) as u64),
-            byte_offset: Some(USize64(scale_offset.offset as u64)),
-            byte_stride: None,
-            target: None,
-            name: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-        let scale_accessor = root.push(Accessor {
-            buffer_view: Some(scale_view),
-            byte_offset: Some(USize64(0)),
-            count: USize64(scale_offset.count as u64),
-            component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
-            type_: Checked::Valid(Type::Vec3),
-            name: None,
-            sparse: None,
-            min: None,
-            max: None,
-            normalized: false,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        let mut samplers = Vec::with_capacity(3);
-        let translation_sampler = Index::push(
-            &mut samplers,
-            Sampler {
-                input: timestamp_accessor,
-                output: translation_accessor,
-                interpolation: Checked::Valid(Interpolation::Linear),
-                extensions: Default::default(),
-                extras: Default::default(),
-            },
-        );
-        let rotation_sampler = Index::push(
-            &mut samplers,
-            Sampler {
-                input: timestamp_accessor,
-                output: rotation_accessor,
-                interpolation: Checked::Valid(Interpolation::Linear),
-                extensions: Default::default(),
-                extras: Default::default(),
-            },
-        );
-        let scale_sampler = Index::push(
-            &mut samplers,
-            Sampler {
-                input: timestamp_accessor,
-                output: scale_accessor,
-                interpolation: Checked::Valid(Interpolation::Linear),
-                extensions: Default::default(),
-                extras: Default::default(),
-            },
-        );
-
-        let mut channels = Vec::with_capacity(3);
         for (target_node_name, _) in &anim.channels {
+            let timestamp_offset = buffer.animation_timestamp_offsets[&anim.name][target_node_name];
+            let timestamp_view = root.push(View {
+                buffer: buffer.index,
+                byte_length: USize64((timestamp_offset.count * std::mem::size_of::<f32>()) as u64),
+                byte_offset: Some(USize64(timestamp_offset.offset as u64)),
+                byte_stride: None,
+                target: None,
+                name: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+            let timestamp_accessor = root.push(Accessor {
+                buffer_view: Some(timestamp_view),
+                byte_offset: Some(USize64(0)),
+                count: USize64(timestamp_offset.count as u64),
+                component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
+                type_: Checked::Valid(Type::Scalar),
+                name: None,
+                sparse: None,
+                min: Some(Value::from(vec![0.0])),
+                max: Some(Value::from(vec![max_timestamp])),
+                normalized: false,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+
+            let translation_offset =
+                buffer.animation_translation_offsets[&anim.name][target_node_name];
+            let translation_view = root.push(View {
+                buffer: buffer.index,
+                byte_length: USize64(
+                    (translation_offset.count * std::mem::size_of::<f32>() * 3) as u64,
+                ),
+                byte_offset: Some(USize64(translation_offset.offset as u64)),
+                byte_stride: None,
+                target: None,
+                name: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+            let translation_accessor = root.push(Accessor {
+                buffer_view: Some(translation_view),
+                byte_offset: Some(USize64(0)),
+                count: USize64(translation_offset.count as u64),
+                component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
+                type_: Checked::Valid(Type::Vec3),
+                name: None,
+                sparse: None,
+                min: None,
+                max: None,
+                normalized: false,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+
+            let rotation_offset =
+                buffer.animation_orientation_offsets[&anim.name][target_node_name];
+            let rotation_view = root.push(View {
+                buffer: buffer.index,
+                byte_length: USize64(
+                    (rotation_offset.count * std::mem::size_of::<f32>() * 4) as u64,
+                ),
+                byte_offset: Some(USize64(rotation_offset.offset as u64)),
+                byte_stride: None,
+                target: None,
+                name: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+            let rotation_accessor = root.push(Accessor {
+                buffer_view: Some(rotation_view),
+                byte_offset: Some(USize64(0)),
+                count: USize64(rotation_offset.count as u64),
+                component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
+                type_: Checked::Valid(Type::Vec4),
+                name: None,
+                sparse: None,
+                min: None,
+                max: None,
+                normalized: false,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+
+            let scale_offset = buffer.animation_scale_offsets[&anim.name][target_node_name];
+            let scale_view = root.push(View {
+                buffer: buffer.index,
+                byte_length: USize64((scale_offset.count * std::mem::size_of::<f32>() * 3) as u64),
+                byte_offset: Some(USize64(scale_offset.offset as u64)),
+                byte_stride: None,
+                target: None,
+                name: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+            let scale_accessor = root.push(Accessor {
+                buffer_view: Some(scale_view),
+                byte_offset: Some(USize64(0)),
+                count: USize64(scale_offset.count as u64),
+                component_type: Checked::Valid(GenericComponentType(ComponentType::F32)),
+                type_: Checked::Valid(Type::Vec3),
+                name: None,
+                sparse: None,
+                min: None,
+                max: None,
+                normalized: false,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+
+            let translation_sampler = Index::push(
+                &mut samplers,
+                Sampler {
+                    input: timestamp_accessor,
+                    output: translation_accessor,
+                    interpolation: Checked::Valid(Interpolation::Linear),
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                },
+            );
+            let rotation_sampler = Index::push(
+                &mut samplers,
+                Sampler {
+                    input: timestamp_accessor,
+                    output: rotation_accessor,
+                    interpolation: Checked::Valid(Interpolation::Linear),
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                },
+            );
+            let scale_sampler = Index::push(
+                &mut samplers,
+                Sampler {
+                    input: timestamp_accessor,
+                    output: scale_accessor,
+                    interpolation: Checked::Valid(Interpolation::Linear),
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                },
+            );
+
             let (target_node_index, _) = root
                 .nodes
                 .iter()
@@ -411,7 +400,6 @@ fn build_animations(
             extensions: Default::default(),
             extras: Default::default(),
         });
-        println!("added animation");
     }
 
     Ok(())
