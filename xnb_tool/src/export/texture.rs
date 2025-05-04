@@ -22,7 +22,7 @@ impl Texture2D {
                 BcnDecoderFormat::RGBA,
             )?
         } else {
-            anyhow::bail!("unknown texture format (self.unk): {}", self.format);
+            anyhow::bail!("unknown texture format: {}", self.format);
         };
 
         let mut png = Vec::new();

@@ -1,35 +1,19 @@
-use std::{borrow::Cow, collections::BTreeMap};
-
-use anyhow::{Context, anyhow};
-use glam::{Mat4, Vec3};
-use gltf::{
-    Glb, Semantic,
-    binary::Header,
-    buffer::Target,
-    json::{
-        self, Accessor, Buffer, Index, Material, Node, Root, Scene, Skin,
-        accessor::{ComponentType, GenericComponentType, Type},
-        buffer::{Stride, View},
-        mesh::Primitive,
-        scene::UnitQuaternion,
-        validation::{Checked, USize64},
-    },
+use anyhow::anyhow;
+use glam::Mat4;
+use gltf::json::{
+    Accessor, Index, Node, Root, Scene, Skin,
+    accessor::{ComponentType, GenericComponentType, Type},
+    buffer::View,
+    scene::UnitQuaternion,
+    validation::{Checked, USize64},
 };
-use serde_json::value::RawValue;
 
 use crate::content::{
     Content,
-    model::{
-        ElementFormat, ElementUsage, IndexBuffer, Mesh, MeshPart, Model, VertexDeclaration,
-        VertexElement,
-    },
     skinned_model::{SkinnedModel, SkinnedModelBone},
 };
 
-use super::{
-    FullBuffer, build_bones, build_buffer, build_glb_bytes, build_materials, build_mesh_parts,
-    pad_to_multiple_of_four, reverse_winding,
-};
+use super::{FullBuffer, build_buffer, build_glb_bytes, build_materials, build_mesh_parts};
 
 impl SkinnedModel {
     pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
@@ -39,48 +23,6 @@ impl SkinnedModel {
 
         let materials = build_materials(&mut root, shared_content);
 
-        // let mesh_nodes: Vec<Index<Node>> = self
-        //     .model
-        //     .meshes
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(mesh_idx, mesh)| {
-        //         build_mesh(&mut root, &buffer, &self.model, mesh, mesh_idx, &materials)
-        //     })
-        //     .collect();
-        // dbg!(mesh_nodes.len());
-
-        // let (root_bone_node, bone_nodes) = build_bones(&mut root, &self.model)?;
-
-        // for (mesh_idx, mesh) in self.model.meshes.iter().enumerate() {
-        //     build_mesh(
-        //         &mut root,
-        //         &buffer,
-        //         &self.model,
-        //         mesh,
-        //         mesh_idx,
-        //         &materials,
-        //         &bone_nodes,
-        //     );
-        // }
-
-        // let (mesh_node_indices, mesh_part_node_indices): (Vec<Index<Node>>, Vec<Index<Node>>) =
-        //     self.model
-        //         .meshes
-        //         .iter()
-        //         .enumerate()
-        //         .map(|(mesh_idx, mesh)| {
-        //             build_mesh_parts(
-        //                 &mut root,
-        //                 &buffer,
-        //                 &self.model,
-        //                 mesh,
-        //                 mesh_idx,
-        //                 &materials,
-        //                 None,
-        //             )
-        //         })
-        //         .unzip();
         let mut mesh_node_indices = Vec::new();
         let mut mesh_part_node_indices = Vec::new();
         for (mesh_idx, mesh) in self.model.meshes.iter().enumerate() {
@@ -99,25 +41,14 @@ impl SkinnedModel {
 
         let (skin, root_skin_bone_node) = build_skin(&mut root, &buffer, self, shared_content)?;
 
-        // let mut part_node_indices = Vec::new();
-        // for mesh_node_index in &mesh_nodes {
-        //     let mesh_node = &root.nodes[mesh_node_index.value()];
-        //     if let Some(children) = mesh_node.children.as_ref() {
-        //         part_node_indices.extend_from_slice(children);
-        //     }
-        // }
         for index in &mesh_part_node_indices {
             root.nodes[index.value()].skin = Some(skin);
         }
-
-        // let mut scene_nodes = mesh_nodes.clone();
-        // scene_nodes.push(root_bone_node);
 
         let mut scene_nodes = mesh_node_indices.clone();
         scene_nodes.push(root_skin_bone_node);
 
         let scene = root.push(Scene {
-            // nodes: vec![root_bone_node, root_skin_bone_node],
             nodes: scene_nodes,
             name: None,
             extensions: Default::default(),
@@ -154,23 +85,6 @@ fn build_skin(
             }
         })
         .ok_or_else(|| anyhow!("could not find root bone"))?;
-
-    fn traverse_print_bone_recursive(
-        bone: &SkinnedModelBone,
-        shared_content: &[Content],
-        depth: usize,
-    ) -> anyhow::Result<()> {
-        println!("{}{}", "   |".repeat(depth), bone.name);
-        for child_ref in bone.shared_child_refs.iter().copied() {
-            let Content::SkinnedModelBone(child) = &shared_content[child_ref - 1] else {
-                anyhow::bail!("expected child bone at shared content index {}", child_ref);
-            };
-            traverse_print_bone_recursive(child, shared_content, depth + 1)?;
-        }
-        Ok(())
-    }
-
-    traverse_print_bone_recursive(root_bone, shared_content, 0)?;
 
     let root_bone_node = root.push(Node {
         name: Some(root_bone.name.clone()),
@@ -233,7 +147,7 @@ fn build_skin(
         ),
         byte_offset: Some(USize64(buffer.inverse_bind_matrices_offset as u64)),
         byte_stride: None,
-        target: None, // ?
+        target: None,
         name: None,
         extensions: Default::default(),
         extras: Default::default(),
@@ -264,5 +178,4 @@ fn build_skin(
     });
 
     Ok((skin, root_bone_node))
-    // todo!()
 }
