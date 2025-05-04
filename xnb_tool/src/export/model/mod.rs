@@ -1,4 +1,7 @@
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+};
 
 use anyhow::Context;
 use glam::{Mat4, Vec3};
@@ -111,19 +114,29 @@ fn build_bones(root: &mut Root, model: &Model) -> anyhow::Result<(Index<Node>, V
     Ok((root_bone_node.unwrap(), bone_nodes))
 }
 
+#[derive(Debug, Clone, Copy)]
+struct OffsetCount {
+    pub offset: usize,
+    pub count: usize,
+}
+
 struct FullBuffer {
     pub index: Index<Buffer>,
     pub data: Vec<u8>,
     pub vertex_offsets: Vec<usize>,
     pub index_offsets: Vec<usize>,
-    pub inverse_bind_matrices_offset: usize,
-    pub inverse_bind_matrices_count: usize,
+    pub inverse_bind_matrices: OffsetCount,
+    pub animation_timestamp_offsets: HashMap<String, OffsetCount>,
+    // pub animation_transform_offsets: HashMap<String, OffsetCount>,
+    pub animation_translation_offsets: HashMap<String, OffsetCount>,
+    pub animation_orientation_offsets: HashMap<String, OffsetCount>,
+    pub animation_scale_offsets: HashMap<String, OffsetCount>,
 }
 
 fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> FullBuffer {
+    let mut buffer_data = Vec::new();
     let mut vertex_offsets = Vec::new();
     let mut index_offsets = Vec::new();
-    let mut buffer_data = Vec::new();
 
     for mesh in &model.meshes {
         vertex_offsets.push(buffer_data.len());
@@ -144,6 +157,87 @@ fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> F
             inverse_bind_matrices_count += 1;
         }
     }
+    let inverse_bind_matrices_offset = OffsetCount {
+        offset: inverse_bind_matrices_offset,
+        count: inverse_bind_matrices_count,
+    };
+
+    let mut animation_timestamp_offsets = HashMap::new();
+    // let mut animation_transform_offsets = HashMap::new();
+    let mut animation_translation_offsets = HashMap::new();
+    let mut animation_orientation_offsets = HashMap::new();
+    let mut animation_scale_offsets = HashMap::new();
+    for content in shared_content {
+        if let Content::SkinnedModelAnimationClip(anim) = content {
+            for (_, keyframes) in &anim.channels {
+                animation_timestamp_offsets.insert(
+                    // target_node_name.clone(),
+                    anim.name.clone(),
+                    OffsetCount {
+                        offset: buffer_data.len(),
+                        count: keyframes.len(),
+                    },
+                );
+                for keyframe in keyframes {
+                    buffer_data.extend_from_slice(keyframe.time.to_le_bytes().as_slice());
+                }
+
+                // animation_transform_offsets.insert(
+                //     // target_node_name.clone(),
+                //     anim.name.clone(),
+                //     OffsetCount {
+                //         offset: buffer_data.len(),
+                //         count: keyframes.len(),
+                //     },
+                // );
+                // for keyframe in keyframes {
+                //     buffer_data
+                //         .extend_from_slice(bytemuck::cast_slice(&[keyframe.pose.translation]));
+                //     buffer_data.extend_from_slice(bytemuck::cast_slice(&[keyframe
+                //         .pose
+                //         .orientation
+                //         .normalize()]));
+                //     buffer_data.extend_from_slice(bytemuck::cast_slice(&[keyframe.pose.scale]));
+                // }
+                animation_translation_offsets.insert(
+                    anim.name.clone(),
+                    OffsetCount {
+                        offset: buffer_data.len(),
+                        count: keyframes.len(),
+                    },
+                );
+                for keyframe in keyframes {
+                    buffer_data
+                        .extend_from_slice(bytemuck::cast_slice(&[keyframe.pose.translation]));
+                }
+
+                animation_orientation_offsets.insert(
+                    anim.name.clone(),
+                    OffsetCount {
+                        offset: buffer_data.len(),
+                        count: keyframes.len(),
+                    },
+                );
+                for keyframe in keyframes {
+                    buffer_data.extend_from_slice(bytemuck::cast_slice(&[keyframe
+                        .pose
+                        .orientation
+                        .normalize()]));
+                }
+
+                animation_scale_offsets.insert(
+                    anim.name.clone(),
+                    OffsetCount {
+                        offset: buffer_data.len(),
+                        count: keyframes.len(),
+                    },
+                );
+                for keyframe in keyframes {
+                    buffer_data.extend_from_slice(bytemuck::cast_slice(&[keyframe.pose.scale]));
+                }
+            }
+        }
+    }
 
     let buffer_index = root.push(Buffer {
         byte_length: USize64(buffer_data.len() as u64),
@@ -158,8 +252,12 @@ fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> F
         data: buffer_data,
         vertex_offsets,
         index_offsets,
-        inverse_bind_matrices_offset,
-        inverse_bind_matrices_count,
+        inverse_bind_matrices: inverse_bind_matrices_offset,
+        animation_timestamp_offsets,
+        // animation_transform_offsets,
+        animation_translation_offsets,
+        animation_orientation_offsets,
+        animation_scale_offsets,
     }
 }
 

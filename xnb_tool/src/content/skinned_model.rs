@@ -132,13 +132,13 @@ impl SkinnedModelAnimationClip {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinnedModelAnimationKeyframe {
-    time: f32,
-    pose: SkinnedModelPose,
+    pub time: f32,
+    pub pose: SkinnedModelPose,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinnedModelPose {
-    translation: Vec3,
-    orientation: Quat,
-    scale: Vec3,
+    pub translation: Vec3,
+    pub orientation: Quat,
+    pub scale: Vec3,
 }
