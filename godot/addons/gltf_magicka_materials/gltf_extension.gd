@@ -106,6 +106,7 @@ func _create_skinned_basic_material(data: Dictionary, base_path: String, index: 
 	material.shader = load("res://addons/gltf_magicka_materials/shaders/skinned_basic.gdshader")
 	material.set_shader_parameter("diffuse_texture_0", diffuse_texture_0)
 	material.set_shader_parameter("diffuse_texture_1", diffuse_texture_1)
+	material.set_shader_parameter("diffuse_1_set", true if diffuse_texture_1 != null else false)
 	material.set_shader_parameter("damage_texture_0", damage_texture_0)
 	material.set_shader_parameter("damage_texture_1", damage_texture_1)
 	material.set_shader_parameter("damage_0_set", true if damage_texture_0 != null else false)

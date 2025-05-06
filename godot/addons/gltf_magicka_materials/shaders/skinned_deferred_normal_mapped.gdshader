@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode depth_prepass_alpha;
 
 uniform sampler2D diffuse_texture : source_color;
 uniform sampler2D damage_texture : source_color;
@@ -15,6 +16,7 @@ uniform bool damage_enabled = false;
 
 void fragment() {
 	vec4 diffuse = texture(diffuse_texture, UV);
+	float base_alpha = diffuse.a;
 	vec4 damage = texture(damage_texture, UV);
 	vec4 normal = texture(normal_texture, UV);
 	vec4 normal_damage = texture(normal_damage_texture, UV);
@@ -25,7 +27,7 @@ void fragment() {
 	diffuse = diffuse * vec4(diffuse_color, 1.0);
 
 	ALBEDO = diffuse.rgb;
-	//ALPHA = diffuse.a;
+	ALPHA = base_alpha;
 	EMISSION = diffuse.rgb * spg.r * emissive_amount;
 	SPECULAR = spg.g * specular_amount;
 	NORMAL_MAP = normal.rgb;

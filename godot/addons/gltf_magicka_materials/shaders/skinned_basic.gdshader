@@ -1,7 +1,9 @@
 shader_type spatial;
+render_mode depth_prepass_alpha;
 
 uniform sampler2D diffuse_texture_0 : source_color;
 uniform sampler2D diffuse_texture_1 : source_color;
+uniform bool diffuse_1_set = false;
 uniform sampler2D damage_texture_0 : source_color;
 uniform bool damage_0_set = false;
 uniform sampler2D damage_texture_1 : source_color;
@@ -18,13 +20,16 @@ uniform bool damage_enabled = false;
 
 void fragment() {
 	vec4 diffuse_0 = texture(diffuse_texture_0, UV);
-	vec4 diffuse_1 = texture(diffuse_texture_1, UV);
+	vec4 diffuse_1 = vec4(0.0);
+	if (diffuse_1_set) {
+		diffuse_1 = texture(diffuse_texture_1, UV);
+	}
+	float base_alpha = mix(diffuse_1.a, 1.0, diffuse_0.a);
 	vec4 damage_0 = texture(damage_texture_0, UV);
 	vec4 damage_1 = texture(damage_texture_1, UV);
 	vec4 normal = texture(normal_texture, UV);
 	vec4 spg = texture(spg_texture, UV);
 	if (damage_enabled) {
-		// TODO: doesnt always seem to work quite right
 		if (damage_0_set) {
 			diffuse_0 = mix(diffuse_0, damage_0, damage_0.a);
 		}
@@ -35,7 +40,7 @@ void fragment() {
 	vec4 diffuse = mix(diffuse_1 * vec4(diffuse_color, 1.0), diffuse_0, diffuse_0.a);
 
 	ALBEDO = diffuse.rgb;
-	//ALPHA = diffuse.a * alpha;
+	ALPHA = base_alpha * alpha;
 	EMISSION = diffuse.rgb * spg.r * emissive_amount;
 	SPECULAR = spg.g * specular_amount; // TODO: is specular_amount set correctly?
 	if (normal_set) {
