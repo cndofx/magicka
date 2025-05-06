@@ -2,13 +2,18 @@ use gltf::json::{Root, Scene};
 
 use crate::content::{Content, model::Model};
 
-use super::{build_bones, build_buffer, build_glb_bytes, build_materials, build_mesh_parts};
+use super::{
+    build_bones, build_buffer, build_glb_bytes, build_materials, build_mesh_parts,
+    transformed_model::TransformedModel,
+};
 
 impl Model {
     pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
         let mut root = Root::default();
 
-        let buffer = build_buffer(&mut root, self, shared_content);
+        let transformed_model = TransformedModel::from(self);
+
+        let buffer = build_buffer(&mut root, &transformed_model, shared_content);
 
         let materials = build_materials(&mut root, shared_content);
 
@@ -18,7 +23,7 @@ impl Model {
             build_mesh_parts(
                 &mut root,
                 &buffer,
-                self,
+                &transformed_model,
                 mesh,
                 mesh_idx,
                 &materials,

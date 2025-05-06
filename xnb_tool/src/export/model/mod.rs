@@ -17,17 +17,16 @@ use gltf::{
     },
 };
 use serde_json::value::RawValue;
+use transformed_model::{TransformedModel, TransformedVertexDeclaration};
 
 use crate::content::{
     Content,
-    model::{
-        ElementFormat, ElementUsage, IndexBuffer, Mesh, MeshPart, Model, VertexDeclaration,
-        VertexElement,
-    },
+    model::{IndexBuffer, Mesh, MeshPart, Model},
 };
 
 pub mod basic;
 pub mod skinned;
+pub mod transformed_model;
 
 fn pad_to_multiple_of_four(n: usize) -> usize {
     (n + 3) & !3
@@ -63,7 +62,8 @@ fn build_materials(root: &mut Root, shared_content: &[Content]) -> Vec<Option<In
             Content::RenderDeferredEffect(..)
             | Content::AdditiveEffect(..)
             | Content::BasicEffect(..)
-            | Content::SkinnedModelBasicEffect(..) => {
+            | Content::SkinnedModelBasicEffect(..)
+            | Content::SkinnedModelDeferredNormalMappedEffect(..) => {
                 let json = serde_json::to_string(content).unwrap();
                 let material = root.push(Material {
                     extras: Some(RawValue::from_string(json).unwrap()),
@@ -132,7 +132,11 @@ struct FullBuffer {
     pub animation_scale_offsets: HashMap<String, HashMap<String, OffsetCount>>,
 }
 
-fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> FullBuffer {
+fn build_buffer(
+    root: &mut Root,
+    model: &TransformedModel,
+    shared_content: &[Content],
+) -> FullBuffer {
     let mut buffer_data = Vec::new();
     let mut vertex_offsets = Vec::new();
     let mut index_offsets = Vec::new();
@@ -263,7 +267,7 @@ fn build_buffer(root: &mut Root, model: &Model, shared_content: &[Content]) -> F
 fn build_mesh_parts(
     root: &mut Root,
     buffer: &FullBuffer,
-    model: &Model,
+    model: &TransformedModel,
     mesh: &Mesh,
     mesh_idx: usize,
     materials: &[Option<Index<Material>>],
@@ -294,7 +298,7 @@ fn build_mesh_parts(
 fn build_mesh_part(
     root: &mut Root,
     buffer: &FullBuffer,
-    model: &Model,
+    model: &TransformedModel,
     mesh: &Mesh,
     mesh_idx: usize,
     part: &MeshPart,
@@ -376,7 +380,7 @@ fn build_mesh_part(
         attributes: {
             let mut map = BTreeMap::new();
             for (i, el) in vertex_decl.elements.iter().enumerate() {
-                map.insert(Checked::Valid(el.semantic()), vertex_accessors[i]);
+                map.insert(Checked::Valid(el.semantic.clone()), vertex_accessors[i]);
             }
             map
         },
@@ -404,11 +408,11 @@ fn build_mesh_part(
     node
 }
 
-fn calculate_bounds(vertices: &[u8], decl: &VertexDeclaration) -> (Vec3, Vec3) {
+fn calculate_bounds(vertices: &[u8], decl: &TransformedVertexDeclaration) -> (Vec3, Vec3) {
     let offset = decl
         .elements
         .iter()
-        .find(|el| matches!(el.usage, ElementUsage::Position))
+        .find(|el| el.semantic == Semantic::Positions)
         .unwrap()
         .offset as usize;
 
@@ -465,102 +469,5 @@ fn reverse_winding(indices: &IndexBuffer) -> IndexBuffer {
     IndexBuffer {
         is_16_bit: indices.is_16_bit,
         data,
-    }
-}
-
-impl VertexDeclaration {
-    pub fn accessors(
-        &self,
-        view: Index<View>,
-        num_vertices: u64,
-        pos_min: Vec3,
-        pos_max: Vec3,
-    ) -> Vec<Accessor> {
-        self.elements
-            .iter()
-            .map(|el| el.accessor(view, num_vertices, pos_min, pos_max))
-            .collect()
-    }
-}
-
-impl VertexElement {
-    pub fn accessor(
-        &self,
-        view: Index<View>,
-        num_vertices: u64,
-        pos_min: Vec3,
-        pos_max: Vec3,
-    ) -> Accessor {
-        let (min, max) = match self.usage {
-            ElementUsage::Position => (
-                Some(serde_json::Value::from(vec![
-                    pos_min.x, pos_min.y, pos_min.z,
-                ])),
-                Some(serde_json::Value::from(vec![
-                    pos_max.x, pos_max.y, pos_max.z,
-                ])),
-            ),
-            _ => (None, None),
-        };
-
-        let normalized = match self.format {
-            ElementFormat::Color => true,
-            _ => false,
-        };
-
-        Accessor {
-            buffer_view: Some(view),
-            byte_offset: Some(USize64(self.offset as u64)),
-            count: USize64(num_vertices),
-            component_type: Checked::Valid(GenericComponentType(self.format.into())),
-            extensions: Default::default(),
-            extras: Default::default(),
-            type_: Checked::Valid(self.format.into()),
-            min,
-            max,
-            name: None,
-            normalized,
-            sparse: None,
-        }
-    }
-
-    pub fn semantic(&self) -> Semantic {
-        match self.usage {
-            ElementUsage::Position => Semantic::Positions,
-            ElementUsage::Normal => Semantic::Normals,
-            ElementUsage::Color => Semantic::Colors(self.usage_index as u32),
-            ElementUsage::TextureCoordinate => Semantic::TexCoords(self.usage_index as u32),
-            ElementUsage::BlendIndices => Semantic::Joints(self.usage_index as u32),
-            ElementUsage::BlendWeight => Semantic::Weights(self.usage_index as u32),
-            v => unimplemented!("semantic for element usage: {v:?}"),
-        }
-    }
-}
-
-impl From<ElementFormat> for ComponentType {
-    fn from(value: ElementFormat) -> Self {
-        match value {
-            ElementFormat::Single => ComponentType::F32,
-            ElementFormat::Vector2 => ComponentType::F32,
-            ElementFormat::Vector3 => ComponentType::F32,
-            ElementFormat::Vector4 => ComponentType::F32,
-            ElementFormat::Color => ComponentType::U8,
-            ElementFormat::Byte4 => ComponentType::U8,
-            v => unimplemented!("component type for element format: {v:?}"),
-        }
-    }
-}
-
-impl From<ElementFormat> for Type {
-    fn from(value: ElementFormat) -> Self {
-        match value {
-            ElementFormat::Single => Type::Scalar,
-            ElementFormat::Vector2 => Type::Vec2,
-            ElementFormat::Vector3 => Type::Vec3,
-            ElementFormat::Vector4 => Type::Vec4,
-            ElementFormat::Color => Type::Vec4,
-            ElementFormat::Byte4 => Type::Vec4,
-            v => unimplemented!("type for element format: {v:?}"),
-        }
     }
 }

@@ -33,7 +33,7 @@ void fragment() {
 		}
 	}
 	vec4 diffuse = mix(diffuse_1 * vec4(diffuse_color, 1.0), diffuse_0, diffuse_0.a);
-	
+
 	ALBEDO = diffuse.rgb;
 	//ALPHA = diffuse.a * alpha;
 	EMISSION = diffuse.rgb * spg.r * emissive_amount;

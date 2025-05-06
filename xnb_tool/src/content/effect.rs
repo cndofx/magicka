@@ -237,6 +237,47 @@ impl RenderDeferredEffectMaterial {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct SkinnedModelDeferredNormalMappedEffect {
+    pub diffuse_color: Color,
+    pub specular_amount: f32,
+    pub specular_power: f32,
+    pub emissive_amount: f32,
+    pub normal_power: f32,
+    pub diffuse_texture: String,
+    pub material_texture: String,
+    pub damage_texture: String,
+    pub normal_texture: String,
+    pub normal_damage_texture: String,
+}
+
+impl SkinnedModelDeferredNormalMappedEffect {
+    pub fn read(reader: &mut impl Read) -> anyhow::Result<Self> {
+        let diffuse_color = Color::read(reader)?;
+        let specular_amount = reader.read_f32::<LittleEndian>()?;
+        let specular_power = reader.read_f32::<LittleEndian>()?;
+        let emissive_amount = reader.read_f32::<LittleEndian>()?;
+        let normal_power = reader.read_f32::<LittleEndian>()?;
+        let diffuse_texture = reader.read_7bit_length_string()?;
+        let material_texture = reader.read_7bit_length_string()?;
+        let damage_texture = reader.read_7bit_length_string()?;
+        let normal_texture = reader.read_7bit_length_string()?;
+        let normal_damage_texture = reader.read_7bit_length_string()?;
+        Ok(SkinnedModelDeferredNormalMappedEffect {
+            diffuse_color,
+            specular_amount,
+            specular_power,
+            emissive_amount,
+            normal_power,
+            diffuse_texture,
+            material_texture,
+            damage_texture,
+            normal_texture,
+            normal_damage_texture,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BonedEffect {
     bone: String,
     effect: String,

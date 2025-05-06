@@ -18,23 +18,28 @@ use crate::content::{
     skinned_model::{SkinnedModel, SkinnedModelBone},
 };
 
-use super::{FullBuffer, build_buffer, build_glb_bytes, build_materials, build_mesh_parts};
+use super::{
+    FullBuffer, build_buffer, build_glb_bytes, build_materials, build_mesh_parts,
+    transformed_model::TransformedModel,
+};
 
 impl SkinnedModel {
     pub fn to_glb(&self, shared_content: &[Content]) -> anyhow::Result<Vec<u8>> {
         let mut root = Root::default();
 
-        let buffer = build_buffer(&mut root, &self.model, shared_content);
+        let transformed_model = TransformedModel::from(&self.model);
+
+        let buffer = build_buffer(&mut root, &transformed_model, shared_content);
 
         let materials = build_materials(&mut root, shared_content);
 
         let mut mesh_node_indices = Vec::new();
         let mut mesh_part_node_indices = Vec::new();
-        for (mesh_idx, mesh) in self.model.meshes.iter().enumerate() {
+        for (mesh_idx, mesh) in transformed_model.meshes.iter().enumerate() {
             let (mesh_node_index, part_node_indices) = build_mesh_parts(
                 &mut root,
                 &buffer,
-                &self.model,
+                &transformed_model,
                 mesh,
                 mesh_idx,
                 &materials,

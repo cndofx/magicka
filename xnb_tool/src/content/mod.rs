@@ -1,7 +1,10 @@
 use std::io::Read;
 
 use character::Character;
-use effect::{AdditiveEffect, BasicEffect, Effect, RenderDeferredEffect, SkinnedModelBasicEffect};
+use effect::{
+    AdditiveEffect, BasicEffect, Effect, RenderDeferredEffect, SkinnedModelBasicEffect,
+    SkinnedModelDeferredNormalMappedEffect,
+};
 use item::Item;
 use model::{IndexBuffer, Model, VertexBuffer, VertexDeclaration};
 use serde::{Deserialize, Serialize};
@@ -58,6 +61,8 @@ const SKINNED_MODEL_BASIC_EFFECT_READER_NAME: &str =
 
 const ADDITIVE_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.AdditiveEffectReader";
 const RENDER_DEFERRED_EFFECT_READER_NAME: &str = "PolygonHead.Pipeline.RenderDeferredEffectReader";
+const SKINNED_MODEL_DEFERRED_NORMAL_MAPPED_EFFECT_READER_NAME: &str =
+    "PolygonHead.Pipeline.SkinnedModelDeferredNormalMappedEffectReader";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Content {
@@ -76,9 +81,10 @@ pub enum Content {
     IndexBuffer(IndexBuffer),
     Effect(Effect),
     BasicEffect(BasicEffect),
-    SkinnedModelBasicEffect(SkinnedModelBasicEffect),
     AdditiveEffect(AdditiveEffect),
     RenderDeferredEffect(RenderDeferredEffect),
+    SkinnedModelBasicEffect(SkinnedModelBasicEffect),
+    SkinnedModelDeferredNormalMappedEffect(SkinnedModelDeferredNormalMappedEffect),
 }
 
 impl Content {
@@ -147,10 +153,6 @@ impl Content {
                 let effect = BasicEffect::read(reader)?;
                 return Ok(Content::BasicEffect(effect));
             }
-            SKINNED_MODEL_BASIC_EFFECT_READER_NAME => {
-                let effect = SkinnedModelBasicEffect::read(reader, type_readers)?;
-                return Ok(Content::SkinnedModelBasicEffect(effect));
-            }
             RENDER_DEFERRED_EFFECT_READER_NAME => {
                 let effect = RenderDeferredEffect::read(reader)?;
                 return Ok(Content::RenderDeferredEffect(effect));
@@ -158,6 +160,14 @@ impl Content {
             ADDITIVE_EFFECT_READER_NAME => {
                 let effect = AdditiveEffect::read(reader)?;
                 return Ok(Content::AdditiveEffect(effect));
+            }
+            SKINNED_MODEL_BASIC_EFFECT_READER_NAME => {
+                let effect = SkinnedModelBasicEffect::read(reader, type_readers)?;
+                return Ok(Content::SkinnedModelBasicEffect(effect));
+            }
+            SKINNED_MODEL_DEFERRED_NORMAL_MAPPED_EFFECT_READER_NAME => {
+                let effect = SkinnedModelDeferredNormalMappedEffect::read(reader)?;
+                return Ok(Content::SkinnedModelDeferredNormalMappedEffect(effect));
             }
             _ => {
                 anyhow::bail!("unknown type reader: {}", type_reader.name);

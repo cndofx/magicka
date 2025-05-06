@@ -30,6 +30,8 @@ func _create_material(extras: Dictionary, base_path: String, index: int) -> Mate
 		return _create_additive_material(extras.AdditiveEffect, base_path, index)
 	elif extras.has("SkinnedModelBasicEffect"):
 		return _create_skinned_basic_material(extras.SkinnedModelBasicEffect, base_path, index)
+	elif extras.has("SkinnedModelDeferredNormalMappedEffect"):
+		return _create_skinned_deferred_normal_mapped_material(extras.SkinnedModelDeferredNormalMappedEffect, base_path, index)
 	else:
 		push_error("no supported material data found in extras")
 		return null
@@ -115,6 +117,34 @@ func _create_skinned_basic_material(data: Dictionary, base_path: String, index: 
 	material.set_shader_parameter("emissive_amount", emissive_amount)
 	material.set_shader_parameter("specular_amount", specular_amount)
 	material.set_shader_parameter("specular_power", specular_power)
+	return material
+
+
+func _create_skinned_deferred_normal_mapped_material(data: Dictionary, base_path: String, index: int) -> Material:
+	var diffuse_color = data.diffuse_color
+	diffuse_color = Color(diffuse_color.r, diffuse_color.g, diffuse_color.b)
+	var specular_amount = data.specular_amount
+	var specular_power = data.specular_power
+	var emissive_amount = data.emissive_amount
+	var normal_power = data.normal_power
+	var diffuse_texture = _get_texture(base_path, data.diffuse_texture)
+	var damage_texture = _get_texture(base_path, data.damage_texture)
+	var normal_texture = _get_texture(base_path, data.normal_texture)
+	var normal_damage_texture = _get_texture(base_path, data.normal_damage_texture)
+	var spg_texture = _get_texture(base_path, data.material_texture)
+	var material = ShaderMaterial.new()
+	material.resource_name = "material_%d_skinned_deferred_normal_mapped" % index
+	material.shader = load("res://addons/gltf_magicka_materials/shaders/skinned_deferred_normal_mapped.gdshader")
+	material.set_shader_parameter("diffuse_color", diffuse_color)
+	material.set_shader_parameter("specular_amount", specular_amount)
+	material.set_shader_parameter("specular_power", specular_power)
+	material.set_shader_parameter("emissive_amount", emissive_amount)
+	material.set_shader_parameter("normal_power", normal_power)
+	material.set_shader_parameter("diffuse_texture", diffuse_texture)
+	material.set_shader_parameter("damage_texture", damage_texture)
+	material.set_shader_parameter("normal_texture", normal_texture)
+	material.set_shader_parameter("normal_damage_texture", normal_damage_texture)
+	material.set_shader_parameter("spg_texture", spg_texture)
 	return material
 
 

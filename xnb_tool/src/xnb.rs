@@ -153,9 +153,12 @@ impl Xnb {
             Content::IndexBuffer(..) => "indexbuffer",
             Content::Effect(..) => "effect",
             Content::BasicEffect(..) => "basiceffect",
-            Content::SkinnedModelBasicEffect(..) => "skinnedmodelbasiceffect",
             Content::AdditiveEffect(..) => "additiveeffect",
             Content::RenderDeferredEffect(..) => "renderdeferredeffect",
+            Content::SkinnedModelBasicEffect(..) => "skinnedmodelbasiceffect",
+            Content::SkinnedModelDeferredNormalMappedEffect(..) => {
+                "skinnedmodeldeferrednormalmappedeffect"
+            }
         };
 
         let extension = if options.msgpack {

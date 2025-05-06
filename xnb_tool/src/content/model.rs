@@ -74,7 +74,7 @@ impl Model {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bone {
     pub name: String,
     pub transform: Mat4,
@@ -91,7 +91,7 @@ impl Bone {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BoneHierarchy {
     pub parent_ref: u32,
     pub children_refs: Vec<u32>,
@@ -158,7 +158,7 @@ impl Mesh {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MeshPart {
     pub stream_offset: u32,
     pub base_vertex: u32,
@@ -193,7 +193,7 @@ impl MeshPart {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BoundingSphere {
     pub center: Vec3,
     pub radius: f32,
@@ -324,7 +324,7 @@ impl ElementMethod {
 }
 
 #[repr(u8)]
-#[derive(strum::FromRepr, Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(strum::FromRepr, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementUsage {
     Position,
     BlendWeight,
@@ -350,7 +350,7 @@ impl ElementUsage {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VertexBuffer {
     pub data: Vec<u8>,
 }
@@ -364,7 +364,7 @@ impl VertexBuffer {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IndexBuffer {
     pub is_16_bit: bool,
     pub data: Vec<u8>,
